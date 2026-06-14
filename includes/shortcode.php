@@ -89,9 +89,34 @@ function split_flap_shortcode( $atts ) {
 		'split_flap'
 	);
 
-	// Frontend-Assets nur jetzt einreihen – also nur, wenn der Shortcode vorkommt.
+	// Fallback-Enqueue für Fälle ausserhalb des Post-Contents (Widgets, Template-
+	// Aufrufe via do_shortcode). Im Normalfall hat der frühe Hook unten bereits
+	// eingereiht; ein doppeltes wp_enqueue_style() ist unschädlich.
 	split_flap_enqueue_frontend();
 
 	return split_flap_render( split_flap_map_shortcode_atts( $atts ) );
 }
 add_shortcode( 'split_flap', 'split_flap_shortcode' );
+
+/**
+ * Reiht die Frontend-Assets früh ein, wenn der aktuelle Post den Shortcode enthält.
+ *
+ * Läuft auf wp_enqueue_scripts – also vor wp_head. So landet das CSS zuverlässig
+ * im <head>, statt erst beim Rendern im Body angemeldet zu werden (was in
+ * Standard-Themes zu spät kommt). Das bedingte Enqueue bleibt erhalten: ohne
+ * Shortcode im Content wird nichts geladen.
+ *
+ * @return void
+ */
+function split_flap_enqueue_shortcode_assets() {
+	if ( is_admin() ) {
+		return;
+	}
+
+	$post = get_post();
+
+	if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'split_flap' ) ) {
+		split_flap_enqueue_frontend();
+	}
+}
+add_action( 'wp_enqueue_scripts', 'split_flap_enqueue_shortcode_assets' );

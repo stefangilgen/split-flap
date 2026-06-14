@@ -19,7 +19,13 @@
 	--sf-gap: clamp(2px, 0.5vw, 6px);
 	--sf-radius: clamp(3px, 0.8vw, 6px);
 	--sf-font-size: calc(var(--sf-cell-h) * 0.62);
+	/* Lesbarkeitsboden: kleiner als das clamp-Minimum von --sf-cell-w (1.4rem),
+	 * damit 7–12 Felder weiter proportional skalieren. Greift erst, wenn die
+	 * Zelle sonst unter diesen Wert gequetscht würde – dann scrollt der Board. */
+	--sf-cell-min-w: 1.1rem;
 
+	/* Bezugsrahmen für das absolut positionierte span.split-flap__sr. */
+	position: relative;
 	display: block;
 	max-width: 100%;
 }
@@ -30,6 +36,9 @@
 	justify-content: flex-start;
 	gap: var(--sf-gap);
 	max-width: 100%;
+	/* Bei sehr vielen Feldern auf schmalem Viewport horizontal scrollen,
+	 * statt die Klappen unter die Lesbarkeitsgrenze zu quetschen. */
+	overflow-x: auto;
 }
 
 /* Ausrichtung über die Block-align-Optionen. */
@@ -46,9 +55,9 @@
 /* Eine Klappe. Die 3D-Perspektive sitzt auf der Zelle. */
 .split-flap__cell {
 	position: relative;
-	flex: 0 1 var(--sf-cell-w);
+	flex: 0 0 var(--sf-cell-w);
 	width: var(--sf-cell-w);
-	min-width: 0;
+	min-width: var(--sf-cell-min-w);
 	height: var(--sf-cell-h);
 	border-radius: var(--sf-radius);
 	background: var(--sf-flap);
