@@ -1,25 +1,137 @@
 /**
- * Split-Flap – Frontend-Animation (Vanilla JS, keine Abhängigkeiten).
+ * Split-Flap – Frontend-Engine (Vanilla JS, keine Abhängigkeiten).
  *
- * Ablauf:
- *  1. IntersectionObserver startet jede Anzeige erst, wenn sie sichtbar wird.
- *  2. Jede Klappe rattert vom Startzustand (Zufall / leer / alphabetisch) zum
- *     Zielzeichen. Klappen stoppen versetzt von links nach rechts.
- *  3. Bei prefers-reduced-motion zeigt das Skript sofort den statischen Zieltext.
+ * Aufgaben:
+ *  1. IntersectionObserver startet jedes Board erst, wenn es sichtbar wird, und
+ *     steuert den Szenen-Loop (pausiert ausserhalb des Viewports).
+ *  2. Jede Stelle rattert vom alten zum neuen Inhalt; nur geänderte Stellen klappen.
+ *  3. Szenen wechseln automatisch im konfigurierten Intervall (Loop).
+ *  4. Jeder Wechsel feuert ein Custom-Event «splitflap:flip» am Board-Element.
+ *  5. Sound: synthetisch über die Web Audio API (kein Audio-File), erst nach der
+ *     ersten Nutzergeste am Ton-Toggle (Autoplay-Policy). Default stumm.
+ *  6. prefers-reduced-motion: reduce → nur erste Szene statisch, kein Loop, kein Sound.
  *
- * Die Animation läuft über CSS-Transforms (rotateX in split-flap.css). Dieses
- * Skript steuert nur, welches Zeichen je Schritt anliegt und wann gestoppt wird.
+ * Animation und Sound sind entkoppelt: der Sound hängt allein am Custom-Event.
  */
 ( function () {
 	'use strict';
 
-	var REDUCED = window.matchMedia && window.matchMedia( '( prefers-reduced-motion: reduce )' ).matches;
+	var REDUCED = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 
-	// Reihenfolge der Zwischenzeichen beim alphabetischen Rattern.
 	var ALPHA_SEQUENCE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
+	/* ------------------------------------------------------------------ *
+	 * Sound: gemeinsamer AudioContext, erst nach Nutzergeste entsperrt.
+	 * ------------------------------------------------------------------ */
+	var Sound = ( function () {
+		var ctx = null;
+		var noiseBuffer = null;
+
+		/**
+		 * Entsperrt (oder erstellt) den AudioContext. Muss aus einer Nutzergeste
+		 * heraus laufen, sonst greift die Autoplay-Sperre.
+		 *
+		 * @return {boolean} true, wenn ein laufender Context vorliegt.
+		 */
+		function unlock() {
+			var AC = window.AudioContext || window.webkitAudioContext;
+			if ( ! AC ) {
+				return false;
+			}
+			if ( ! ctx ) {
+				try {
+					ctx = new AC();
+				} catch ( e ) {
+					return false;
+				}
+			}
+			if ( 'suspended' === ctx.state && ctx.resume ) {
+				ctx.resume();
+			}
+			if ( ! noiseBuffer ) {
+				noiseBuffer = buildNoiseBuffer( ctx );
+			}
+			return 'running' === ctx.state || 'suspended' === ctx.state;
+		}
+
+		/**
+		 * Baut einen kurzen Rauschpuffer (Quelle für das perkussive Klappern).
+		 *
+		 * @param {AudioContext} context AudioContext.
+		 * @return {AudioBuffer} Rauschpuffer.
+		 */
+		function buildNoiseBuffer( context ) {
+			var len = Math.floor( context.sampleRate * 0.05 );
+			var buffer = context.createBuffer( 1, len, context.sampleRate );
+			var data = buffer.getChannelData( 0 );
+			for ( var i = 0; i < len; i++ ) {
+				data[ i ] = Math.random() * 2 - 1;
+			}
+			return buffer;
+		}
+
+		/**
+		 * Spielt n perkussive Klicks (gefiltertes Rauschen, sehr kurze Hüllkurve).
+		 * Die Zahl gleichzeitiger Impulse wird gedeckelt, damit es nicht übersteuert.
+		 *
+		 * @param {number} count Zahl umklappender Stellen.
+		 * @return {void}
+		 */
+		function clatter( count ) {
+			if ( ! ctx || 'running' !== ctx.state || ! noiseBuffer ) {
+				return;
+			}
+
+			// Max. 8 Impulse pro Aufruf gegen Übersteuern (Spezifikation).
+			var impulses = Math.max( 1, Math.min( 8, count ) );
+			// Lautstärke pro Impuls zusätzlich gegen die Zahl der Klappen skalieren.
+			var perGain = 0.18 / Math.sqrt( impulses );
+
+			for ( var i = 0; i < impulses; i++ ) {
+				playClick( perGain, i * 0.012 + Math.random() * 0.01 );
+			}
+		}
+
+		/**
+		 * Ein einzelner Klick: Rauschquelle → Bandpass → Hüllkurve.
+		 *
+		 * @param {number} gain  Spitzen-Lautstärke.
+		 * @param {number} delay Startverzögerung in Sekunden.
+		 * @return {void}
+		 */
+		function playClick( gain, delay ) {
+			var now = ctx.currentTime + delay;
+
+			var src = ctx.createBufferSource();
+			src.buffer = noiseBuffer;
+
+			var filter = ctx.createBiquadFilter();
+			filter.type = 'bandpass';
+			filter.frequency.value = 1400 + Math.random() * 800;
+			filter.Q.value = 0.8;
+
+			var env = ctx.createGain();
+			env.gain.setValueAtTime( 0.0001, now );
+			env.gain.exponentialRampToValueAtTime( gain, now + 0.002 );
+			env.gain.exponentialRampToValueAtTime( 0.0001, now + 0.045 );
+
+			src.connect( filter );
+			filter.connect( env );
+			env.connect( ctx.destination );
+
+			src.start( now );
+			src.stop( now + 0.06 );
+		}
+
+		return { unlock: unlock, clatter: clatter };
+	} )();
+
+	/* ------------------------------------------------------------------ *
+	 * Hilfsfunktionen.
+	 * ------------------------------------------------------------------ */
+
 	/**
-	 * Liefert eine zufällige Glyphe aus dem Charset der Anzeige.
+	 * Zufällige Glyphe aus dem Charset.
 	 *
 	 * @param {string} charset Erlaubte Zeichen.
 	 * @return {string} Ein Zeichen.
@@ -33,26 +145,79 @@
 	}
 
 	/**
-	 * Bestimmt das Startzeichen je nach Startverhalten.
+	 * Liest die Szenen-Daten aus dem eingebetteten JSON-Block.
 	 *
-	 * @param {string} startMode zufall | leer | alpha.
-	 * @param {string} charset   Erlaubte Zeichen.
-	 * @return {string} Startglyphe.
+	 * @param {HTMLElement} board Board-Element.
+	 * @return {Array<Array<Array<string>>>} Szenen → Zeilen → Stellen (Tokens).
 	 */
-	function startGlyph( startMode, charset ) {
-		if ( 'leer' === startMode ) {
-			return ' ';
+	function readScenes( board ) {
+		var holder = board.querySelector( '.split-flap__data' );
+		if ( ! holder ) {
+			return [];
 		}
-		if ( 'alpha' === startMode ) {
-			return ALPHA_SEQUENCE.charAt( 0 );
+		try {
+			var parsed = JSON.parse( holder.textContent );
+			return Array.isArray( parsed ) ? parsed : [];
+		} catch ( e ) {
+			return [];
 		}
-		return randomGlyph( charset );
 	}
 
 	/**
-	 * Baut die beiden Flip-Hälften in eine Klappe ein (einmalig).
+	 * Prüft, ob ein Token ein Farbflap ist (c1 … c15).
 	 *
-	 * @param {HTMLElement} cell Die Klappe.
+	 * @param {string} token Stellen-Token.
+	 * @return {boolean} true bei Farbflap.
+	 */
+	function isColorToken( token ) {
+		return 'string' === typeof token && /^c([1-9]|1[0-5])$/.test( token );
+	}
+
+	/* ------------------------------------------------------------------ *
+	 * Klappen-Animation einer einzelnen Stelle.
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Setzt eine Klappe statisch auf ein Zeichen (ohne Animation).
+	 *
+	 * @param {HTMLElement} cell  Klappe.
+	 * @param {string}      token Ziel-Token (Zeichen, ' ' oder cN).
+	 * @return {void}
+	 */
+	function setStatic( cell, token ) {
+		applyTokenClasses( cell, token );
+		var glyph = cell.querySelector( '.split-flap__char' );
+		if ( glyph ) {
+			glyph.textContent = isColorToken( token ) || ' ' === token ? '' : token;
+		}
+	}
+
+	/**
+	 * Setzt die Klassen/Inline-Farbe einer Klappe passend zum Token.
+	 *
+	 * @param {HTMLElement} cell  Klappe.
+	 * @param {string}      token Ziel-Token.
+	 * @return {void}
+	 */
+	function applyTokenClasses( cell, token ) {
+		var isColor = isColorToken( token );
+		var isSpace = ' ' === token || '' === token;
+
+		cell.classList.toggle( 'split-flap__cell--color', isColor );
+		cell.classList.toggle( 'split-flap__cell--space', ! isColor && isSpace );
+
+		if ( isColor ) {
+			var n = token.slice( 1 );
+			cell.style.background = 'var(--sf-color-' + n + ')';
+		} else {
+			cell.style.background = '';
+		}
+	}
+
+	/**
+	 * Baut die beiden Flip-Hälften in eine Klappe ein (einmalig pro Flip).
+	 *
+	 * @param {HTMLElement} cell Klappe.
 	 * @return {{top: HTMLElement, bottom: HTMLElement, topGlyph: HTMLElement, bottomGlyph: HTMLElement}} Referenzen.
 	 */
 	function buildHalves( cell ) {
@@ -75,69 +240,75 @@
 	}
 
 	/**
-	 * Setzt das statische Zielzeichen einer Klappe (ohne Animation).
+	 * Wandelt ein Token in den darstellbaren Glyph-Text (Farbflap → leer).
 	 *
-	 * @param {HTMLElement} cell   Die Klappe.
-	 * @param {string}      target Zielzeichen.
-	 * @return {void}
+	 * @param {string} token Stellen-Token.
+	 * @return {string} Anzeigetext.
 	 */
-	function setStatic( cell, target ) {
-		var glyph = cell.querySelector( '.split-flap__char' );
-		if ( glyph ) {
-			glyph.textContent = ' ' === target ? '' : target;
+	function glyphOf( token ) {
+		if ( isColorToken( token ) || ' ' === token || '' === token ) {
+			return '';
 		}
+		return token;
 	}
 
 	/**
-	 * Animiert eine einzelne Klappe bis zum Zielzeichen.
+	 * Animiert eine einzelne Klappe vom aktuellen Inhalt zum Ziel-Token.
 	 *
 	 * @param {HTMLElement} cell    Klappe.
-	 * @param {Object}      config  { charset, startMode, flipMs }.
-	 * @param {number}      delay   Startverzögerung in ms (für Links-nach-rechts-Versatz).
+	 * @param {Object}      config  { charset, flipMs }.
+	 * @param {string}      target  Ziel-Token.
+	 * @param {number}      delay   Startverzögerung in ms.
+	 * @param {Function}    onStep  Callback je sichtbarem Umklappen (für Sound).
 	 * @return {void}
 	 */
-	function animateCell( cell, config, delay ) {
-		var target = cell.getAttribute( 'data-sf-target' );
-		if ( null === target ) {
-			target = ' ';
+	function animateCell( cell, config, target, delay, onStep ) {
+		var halves = buildHalves( cell );
+
+		// Ausgangszeichen: was die Klappe aktuell zeigt.
+		var startGlyph = cell.querySelector( '.split-flap__char' );
+		var current = startGlyph ? startGlyph.textContent : '';
+		if ( '' === current && cell.classList.contains( 'split-flap__cell--color' ) ) {
+			current = ''; // Farbflap → leer als Ausgangswert.
 		}
 
-		var halves = buildHalves( cell );
-		var current = startGlyph( config.startMode, config.charset );
-
-		// Sichtbares Zeichen während des Laufs ausblenden, Hälften übernehmen.
 		cell.classList.add( 'is-flipping' );
 		halves.topGlyph.textContent = current;
 		halves.bottomGlyph.textContent = current;
 
-		// Anzahl Zwischenschritte: ein paar Umdrehungen, bevor das Ziel kommt.
-		var steps = 4 + Math.floor( Math.random() * 6 );
+		var targetGlyph = glyphOf( target );
+		var targetIsColor = isColorToken( target );
 
+		// Ein paar Zwischenschritte bis zum Ziel.
+		var steps = 3 + Math.floor( Math.random() * 5 );
 		var step = 0;
 
 		function doFlip() {
 			var next;
 			if ( step >= steps - 1 ) {
-				next = target; // Letzter Schritt landet exakt auf dem Ziel.
-			} else if ( 'alpha' === config.startMode ) {
-				var idx = ( ALPHA_SEQUENCE.indexOf( current ) + 1 ) % ALPHA_SEQUENCE.length;
-				next = ALPHA_SEQUENCE.charAt( idx );
+				next = targetGlyph; // Letzter Schritt landet auf dem Ziel.
 			} else {
 				next = randomGlyph( config.charset );
 			}
 
-			// Obere Hälfte zeigt das alte Zeichen und klappt weg.
-			halves.topGlyph.textContent = ' ' === current ? '' : current;
-			// Untere Hälfte zeigt das neue Zeichen und klappt nach.
-			halves.bottomGlyph.textContent = ' ' === next ? '' : next;
+			halves.topGlyph.textContent = current;
+			halves.bottomGlyph.textContent = next;
 
-			// Animation neu auslösen: Klasse entfernen, Reflow, wieder setzen.
+			// Bei Farbflap im letzten Schritt die Zielfarbe an die untere Hälfte legen.
+			if ( step >= steps - 1 && targetIsColor ) {
+				halves.bottom.style.background = 'var(--sf-color-' + target.slice( 1 ) + ')';
+				halves.bottomGlyph.textContent = '';
+			}
+
 			halves.top.classList.remove( 'sf-anim' );
 			halves.bottom.classList.remove( 'sf-anim' );
-			// Reflow erzwingen, damit die Animation erneut startet.
-			void halves.top.offsetWidth;
+			void halves.top.offsetWidth; // Reflow erzwingt Neustart der Animation.
 			halves.top.classList.add( 'sf-anim' );
 			halves.bottom.classList.add( 'sf-anim' );
+
+			if ( onStep ) {
+				onStep();
+			}
 
 			current = next;
 			step++;
@@ -145,7 +316,6 @@
 			if ( step < steps ) {
 				window.setTimeout( doFlip, config.flipMs );
 			} else {
-				// Fertig: statisches Zielzeichen einsetzen, Hälften entfernen.
 				window.setTimeout( function () {
 					setStatic( cell, target );
 					cell.classList.remove( 'is-flipping' );
@@ -162,75 +332,279 @@
 		window.setTimeout( doFlip, delay );
 	}
 
+	/* ------------------------------------------------------------------ *
+	 * Board-Controller: hält Szenen, steuert Wechsel und Loop.
+	 * ------------------------------------------------------------------ */
+
 	/**
-	 * Startet die Animation einer kompletten Anzeige.
+	 * Erzeugt einen Controller für ein Board-Element.
 	 *
-	 * @param {HTMLElement} board Element mit Klasse .split-flap.
-	 * @return {void}
+	 * @param {HTMLElement} board Board-Element.
+	 * @return {Object|null} Controller oder null, wenn ungültig.
 	 */
-	function runBoard( board ) {
-		if ( board.getAttribute( 'data-sf-done' ) ) {
-			return;
+	function createBoard( board ) {
+		var scenes = readScenes( board );
+		if ( ! scenes.length ) {
+			return null;
 		}
-		board.setAttribute( 'data-sf-done', '1' );
 
-		var cells = board.querySelectorAll( '.split-flap__cell' );
-
-		if ( REDUCED ) {
-			// Sofort statischer Zieltext, keine Animation.
-			cells.forEach( function ( cell ) {
-				setStatic( cell, cell.getAttribute( 'data-sf-target' ) || ' ' );
-			} );
-			return;
-		}
+		var cells = Array.prototype.slice.call( board.querySelectorAll( '.split-flap__cell' ) );
 
 		var styles = window.getComputedStyle( board );
 		var flipMs = parseInt( styles.getPropertyValue( '--sf-flip-ms' ), 10 ) || 55;
 
 		var config = {
-			charset: board.getAttribute( 'data-sf-charset' ) || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-			startMode: board.getAttribute( 'data-sf-start' ) || 'zufall',
+			charset: board.getAttribute( 'data-sf-charset' ) || ALPHA_SEQUENCE,
 			flipMs: flipMs
 		};
 
-		// Versetzter Start von links nach rechts.
-		var stagger = Math.max( 60, flipMs * 1.6 );
-		cells.forEach( function ( cell, i ) {
-			animateCell( cell, config, i * stagger );
+		var intervalSec = parseInt( board.getAttribute( 'data-sf-intervall' ), 10 ) || 6;
+
+		// Aktuelle Token je Stelle (flach, in DOM-Reihenfolge der Zellen).
+		var currentTokens = flattenScene( scenes[ 0 ] );
+
+		var sceneIndex = 0;
+		var loopTimer = null;
+		var soundOn = false;
+		var started = false;
+
+		/**
+		 * Flacht eine Szene (Zeilen → Stellen) in eine flache Token-Liste ab,
+		 * passend zur DOM-Reihenfolge der Zellen.
+		 *
+		 * @param {Array<Array<string>>} scene Szene.
+		 * @return {Array<string>} Flache Token-Liste.
+		 */
+		function flattenScene( scene ) {
+			var flat = [];
+			for ( var r = 0; r < scene.length; r++ ) {
+				for ( var c = 0; c < scene[ r ].length; c++ ) {
+					flat.push( scene[ r ][ c ] );
+				}
+			}
+			return flat;
+		}
+
+		/**
+		 * Wechselt animiert zur Szene mit gegebenem Index. Nur geänderte Stellen
+		 * klappen. Feuert «splitflap:flip» mit der Zahl umklappender Stellen.
+		 *
+		 * @param {number} idx Ziel-Szenenindex.
+		 * @return {void}
+		 */
+		function goToScene( idx ) {
+			var target = flattenScene( scenes[ idx ] );
+			var changed = 0;
+			var stagger = Math.max( 18, flipMs * 0.6 );
+
+			for ( var i = 0; i < cells.length; i++ ) {
+				var from = currentTokens[ i ];
+				var to = i < target.length ? target[ i ] : ' ';
+				if ( from === to ) {
+					continue; // Gleicher Inhalt → klappt nicht.
+				}
+				changed++;
+				( function ( cell, token, order ) {
+					animateCell( cell, config, token, order * stagger, function () {
+						// Sound hängt am Custom-Event, nicht direkt hier.
+					} );
+				} )( cells[ i ], to, changed );
+			}
+
+			currentTokens = target;
+			sceneIndex = idx;
+
+			// Custom-Event: trägt die Zahl umklappender Stellen, der Sound hört zu.
+			board.dispatchEvent( new CustomEvent( 'splitflap:flip', {
+				detail: { changed: changed, sceneIndex: idx }
+			} ) );
+		}
+
+		/**
+		 * Initialer Aufbau: erste Szene vom Startzustand «durchrattern».
+		 *
+		 * @return {void}
+		 */
+		function buildFirstScene() {
+			var target = flattenScene( scenes[ 0 ] );
+			var changed = 0;
+			var stagger = Math.max( 18, flipMs * 0.8 );
+
+			for ( var i = 0; i < cells.length; i++ ) {
+				var to = i < target.length ? target[ i ] : ' ';
+				// Leere Zielstellen müssen nicht aufwendig durchrattern.
+				if ( ' ' === to || '' === to ) {
+					setStatic( cells[ i ], ' ' );
+					continue;
+				}
+				changed++;
+				( function ( cell, token, order ) {
+					animateCell( cell, config, token, order * stagger, null );
+				} )( cells[ i ], to, changed );
+			}
+
+			currentTokens = target;
+
+			board.dispatchEvent( new CustomEvent( 'splitflap:flip', {
+				detail: { changed: changed, sceneIndex: 0 }
+			} ) );
+		}
+
+		/**
+		 * Zeigt alle Szenen-Inhalte statisch (reduced motion / kein JS-Flip).
+		 *
+		 * @return {void}
+		 */
+		function showStaticFirst() {
+			var target = flattenScene( scenes[ 0 ] );
+			for ( var i = 0; i < cells.length; i++ ) {
+				setStatic( cells[ i ], i < target.length ? target[ i ] : ' ' );
+			}
+			currentTokens = target;
+		}
+
+		/**
+		 * Startet den Szenen-Loop (nur bei mehr als einer Szene).
+		 *
+		 * @return {void}
+		 */
+		function startLoop() {
+			if ( scenes.length < 2 || loopTimer || REDUCED ) {
+				return;
+			}
+			loopTimer = window.setInterval( function () {
+				var next = ( sceneIndex + 1 ) % scenes.length;
+				goToScene( next );
+			}, intervalSec * 1000 );
+		}
+
+		/**
+		 * Pausiert den Loop (Board verlässt Viewport).
+		 *
+		 * @return {void}
+		 */
+		function stopLoop() {
+			if ( loopTimer ) {
+				window.clearInterval( loopTimer );
+				loopTimer = null;
+			}
+		}
+
+		/**
+		 * Aktiviert das Board (erstmals sichtbar).
+		 *
+		 * @return {void}
+		 */
+		function activate() {
+			if ( started ) {
+				startLoop();
+				return;
+			}
+			started = true;
+
+			if ( REDUCED ) {
+				showStaticFirst();
+				return; // Kein Loop, kein Sound.
+			}
+
+			buildFirstScene();
+			startLoop();
+		}
+
+		/**
+		 * Deaktiviert den Loop (Board verlässt Viewport), Zustand bleibt erhalten.
+		 *
+		 * @return {void}
+		 */
+		function deactivate() {
+			stopLoop();
+		}
+
+		// Sound an das Custom-Event hängen.
+		board.addEventListener( 'splitflap:flip', function ( ev ) {
+			if ( ! soundOn || REDUCED ) {
+				return;
+			}
+			var changed = ev.detail && ev.detail.changed ? ev.detail.changed : 0;
+			if ( changed > 0 ) {
+				Sound.clatter( changed );
+			}
 		} );
+
+		// Ton-Toggle verdrahten.
+		var toggle = board.querySelector( '.split-flap__sound' );
+		if ( toggle ) {
+			toggle.addEventListener( 'click', function () {
+				if ( ! soundOn ) {
+					var ok = Sound.unlock(); // Erste Nutzergeste entsperrt den Context.
+					soundOn = ok;
+				} else {
+					soundOn = false;
+				}
+				toggle.setAttribute( 'aria-pressed', soundOn ? 'true' : 'false' );
+				var label = soundOn
+					? ( toggle.getAttribute( 'data-sf-sound-on' ) || 'Ton ausschalten' )
+					: ( toggle.getAttribute( 'data-sf-sound-off' ) || 'Ton einschalten' );
+				toggle.setAttribute( 'aria-label', label );
+			} );
+		}
+
+		return { activate: activate, deactivate: deactivate, el: board };
 	}
 
-	/**
-	 * Initialisiert alle Anzeigen auf der Seite.
-	 *
-	 * @return {void}
-	 */
+	/* ------------------------------------------------------------------ *
+	 * Initialisierung aller Boards.
+	 * ------------------------------------------------------------------ */
 	function init() {
 		var boards = document.querySelectorAll( '.split-flap:not(.split-flap--editor)' );
 		if ( ! boards.length ) {
 			return;
 		}
 
+		var controllers = [];
+		boards.forEach( function ( board ) {
+			if ( board.getAttribute( 'data-sf-init' ) ) {
+				return;
+			}
+			board.setAttribute( 'data-sf-init', '1' );
+			var ctrl = createBoard( board );
+			if ( ctrl ) {
+				controllers.push( ctrl );
+			}
+		} );
+
+		if ( ! controllers.length ) {
+			return;
+		}
+
 		if ( ! ( 'IntersectionObserver' in window ) ) {
-			// Fallback ohne Observer: alle direkt starten.
-			boards.forEach( runBoard );
+			controllers.forEach( function ( c ) {
+				c.activate();
+			} );
 			return;
 		}
 
 		var observer = new IntersectionObserver(
-			function ( entries, obs ) {
+			function ( entries ) {
 				entries.forEach( function ( entry ) {
+					var ctrl = controllers.filter( function ( c ) {
+						return c.el === entry.target;
+					} )[ 0 ];
+					if ( ! ctrl ) {
+						return;
+					}
 					if ( entry.isIntersecting ) {
-						runBoard( entry.target );
-						obs.unobserve( entry.target );
+						ctrl.activate();
+					} else {
+						ctrl.deactivate();
 					}
 				} );
 			},
-			{ threshold: 0.25 }
+			{ threshold: 0.2 }
 		);
 
-		boards.forEach( function ( board ) {
-			observer.observe( board );
+		controllers.forEach( function ( c ) {
+			observer.observe( c.el );
 		} );
 	}
 

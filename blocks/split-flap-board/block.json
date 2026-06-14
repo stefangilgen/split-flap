@@ -1,0 +1,64 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "blitzdonner/split-flap-board",
+	"title": "Split-Flap-Board",
+	"category": "media",
+	"icon": "grid-view",
+	"description": "Mehrzeilige Fallblattanzeige (Departure-Board) mit Szenen-Wechsel, Farbflaps und synthetischem Klappersound.",
+	"keywords": [ "split-flap", "fallblatt", "board", "abfahrtstafel", "bahnhof", "flip" ],
+	"textdomain": "split-flap",
+	"supports": {
+		"html": false,
+		"align": [ "left", "center", "right", "wide", "full" ],
+		"spacing": {
+			"margin": true,
+			"padding": false
+		}
+	},
+	"attributes": {
+		"szenen": {
+			"type": "array",
+			"default": [ "" ]
+		},
+		"zeilen": {
+			"type": "number",
+			"default": 6
+		},
+		"stellen": {
+			"type": "number",
+			"default": 25
+		},
+		"intervall": {
+			"type": "number",
+			"default": 6
+		},
+		"tempo": {
+			"type": "string",
+			"default": "normal"
+		},
+		"schrift": {
+			"type": "string",
+			"default": "mono"
+		},
+		"grossschrift": {
+			"type": "boolean",
+			"default": true
+		},
+		"farben": {
+			"type": "array",
+			"default": []
+		},
+		"textfarbe": {
+			"type": "string",
+			"default": "#C8C8C8"
+		},
+		"klappenfarbe": {
+			"type": "string",
+			"default": "#1A1A1A"
+		}
+	},
+	"editorScript": "file:./editor.js",
+	"style": "split-flap",
+	"viewScript": "split-flap"
+}

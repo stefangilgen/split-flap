@@ -19,6 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @return void
  */
 function split_flap_register_block() {
+	// v1: einzeilige Anzeige.
 	register_block_type(
 		SPLIT_FLAP_DIR . 'blocks/split-flap',
 		array(
@@ -26,11 +27,24 @@ function split_flap_register_block() {
 		)
 	);
 
-	// Übersetzungen für die Editor-Strings an das Block-Script binden.
-	// WordPress vergibt diesen Handle automatisch aus dem Block-Namen.
+	// v2: mehrzeiliges Board mit Szenen, Farbflaps und Sound.
+	register_block_type(
+		SPLIT_FLAP_DIR . 'blocks/split-flap-board',
+		array(
+			'render_callback' => 'split_flap_render_board_block',
+		)
+	);
+
+	// Übersetzungen für die Editor-Strings an die Block-Scripts binden.
+	// WordPress vergibt diese Handles automatisch aus dem Block-Namen.
 	if ( function_exists( 'wp_set_script_translations' ) ) {
 		wp_set_script_translations(
 			'blitzdonner-split-flap-editor-script',
+			'split-flap',
+			SPLIT_FLAP_DIR . 'languages'
+		);
+		wp_set_script_translations(
+			'blitzdonner-split-flap-board-editor-script',
 			'split-flap',
 			SPLIT_FLAP_DIR . 'languages'
 		);
@@ -39,11 +53,21 @@ function split_flap_register_block() {
 add_action( 'init', 'split_flap_register_block' );
 
 /**
- * Render-Callback des Blocks: reicht die Attribute an die gemeinsame Render-Funktion.
+ * Render-Callback des v1-Blocks: reicht die Attribute an die Render-Funktion.
  *
  * @param array<string, mixed> $attributes Block-Attribute laut block.json.
  * @return string HTML-Markup.
  */
 function split_flap_render_block( $attributes ) {
 	return split_flap_render( is_array( $attributes ) ? $attributes : array() );
+}
+
+/**
+ * Render-Callback des Board-Blocks: reicht die Attribute an die Board-Render-Funktion.
+ *
+ * @param array<string, mixed> $attributes Block-Attribute laut block.json.
+ * @return string HTML-Markup.
+ */
+function split_flap_render_board_block( $attributes ) {
+	return split_flap_render_board( is_array( $attributes ) ? $attributes : array() );
 }
