@@ -1,0 +1,207 @@
+/**
+ * Split-Flap – Frontend- und Editor-Stile.
+ *
+ * Die Klappen-Mechanik läuft ausschliesslich über CSS-Transforms (rotateX),
+ * nicht über Layout-auslösende Eigenschaften. Das hält die Animation flüssig.
+ *
+ * Default-Kontrast: Text #F4F4F4 auf Klappe #1A1A1A erreicht rund 16:1 – weit
+ * über der geforderten Schwelle von 4.5:1.
+ */
+
+.split-flap {
+	--sf-text: #F4F4F4;
+	--sf-flap: #1A1A1A;
+	--sf-flip-ms: 55ms;
+
+	/* Klappengrösse als ein einziger, responsiver Steuerwert. */
+	--sf-cell-w: clamp(1.4rem, 9vw, 3.2rem);
+	--sf-cell-h: calc(var(--sf-cell-w) * 1.45);
+	--sf-gap: clamp(2px, 0.5vw, 6px);
+	--sf-radius: clamp(3px, 0.8vw, 6px);
+	--sf-font-size: calc(var(--sf-cell-h) * 0.62);
+
+	display: block;
+	max-width: 100%;
+}
+
+.split-flap__board {
+	display: flex;
+	flex-wrap: nowrap;
+	justify-content: flex-start;
+	gap: var(--sf-gap);
+	max-width: 100%;
+}
+
+/* Ausrichtung über die Block-align-Optionen. */
+.aligncenter .split-flap__board,
+.split-flap.aligncenter .split-flap__board {
+	justify-content: center;
+}
+
+.alignright .split-flap__board,
+.split-flap.alignright .split-flap__board {
+	justify-content: flex-end;
+}
+
+/* Eine Klappe. Die 3D-Perspektive sitzt auf der Zelle. */
+.split-flap__cell {
+	position: relative;
+	flex: 0 1 var(--sf-cell-w);
+	width: var(--sf-cell-w);
+	min-width: 0;
+	height: var(--sf-cell-h);
+	border-radius: var(--sf-radius);
+	background: var(--sf-flap);
+	color: var(--sf-text);
+	overflow: hidden;
+	perspective: 200px;
+	/* Trennlinie in der Mitte – die typische Naht der Fallblattanzeige. */
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Das aktuell sichtbare Zeichen (Endzustand und statische Vorschau). */
+.split-flap__char {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--sf-font-size);
+	line-height: 1;
+	font-weight: 700;
+	letter-spacing: 0;
+	/* Mittelnaht. */
+	background:
+		linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0, 0, 0, 0.55) 50%, transparent calc(50% + 1px));
+}
+
+/* Schriftvarianten. */
+.split-flap--font-mono .split-flap__char {
+	font-family: "SFMono-Regular", "Roboto Mono", "DejaVu Sans Mono", "Courier New", ui-monospace, monospace;
+}
+
+.split-flap--font-theme .split-flap__char {
+	font-family: inherit;
+}
+
+/* Leerklappe: kein Zeichen, leicht abgesetzter Ton. */
+.split-flap__cell--space {
+	opacity: 0.92;
+}
+
+/* Screenreader-Text: visuell versteckt, aber vorlesbar. */
+.split-flap__sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------------
+ * Animations-Schicht (nur aktiv, wenn JS die Klappe vorbereitet).
+ * Die obere und untere Hälfte werden als getrennte Flächen aufgebaut.
+ * -------------------------------------------------------------------- */
+
+.split-flap__cell .sf-flip-top,
+.split-flap__cell .sf-flip-bottom {
+	position: absolute;
+	left: 0;
+	right: 0;
+	height: 50%;
+	overflow: hidden;
+	background: var(--sf-flap);
+	color: var(--sf-text);
+	display: flex;
+	justify-content: center;
+	backface-visibility: hidden;
+}
+
+.split-flap__cell .sf-flip-top {
+	top: 0;
+	align-items: flex-end;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.55);
+	border-radius: var(--sf-radius) var(--sf-radius) 0 0;
+	transform-origin: bottom center;
+}
+
+.split-flap__cell .sf-flip-bottom {
+	bottom: 0;
+	align-items: flex-start;
+	border-radius: 0 0 var(--sf-radius) var(--sf-radius);
+	transform-origin: top center;
+}
+
+/* Der Glyph sitzt in jeder Hälfte vertikal zentriert auf voller Zellenhöhe,
+ * damit obere und untere Hälfte zusammen ein ganzes Zeichen ergeben. */
+.split-flap__cell .sf-flip-top .sf-glyph,
+.split-flap__cell .sf-flip-bottom .sf-glyph {
+	position: absolute;
+	height: var(--sf-cell-h);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--sf-font-size);
+	line-height: 1;
+	font-weight: 700;
+}
+
+.split-flap__cell .sf-flip-top .sf-glyph {
+	top: 0;
+}
+
+.split-flap__cell .sf-flip-bottom .sf-glyph {
+	bottom: 0;
+}
+
+/* Während der Animation übernimmt JS die Hälften; das statische Zeichen
+ * wird dann ausgeblendet, um Doppeldarstellung zu vermeiden. */
+.split-flap__cell.is-flipping .split-flap__char {
+	opacity: 0;
+}
+
+/* Die fallende obere Hälfte. JS triggert die Klasse pro Schritt neu. */
+.split-flap__cell.is-flipping .sf-flip-top.sf-anim {
+	animation: sf-fold-top var(--sf-flip-ms) ease-in forwards;
+}
+
+.split-flap__cell.is-flipping .sf-flip-bottom.sf-anim {
+	animation: sf-fold-bottom var(--sf-flip-ms) ease-out forwards;
+}
+
+@keyframes sf-fold-top {
+	0% {
+		transform: rotateX(0deg);
+	}
+	100% {
+		transform: rotateX(-90deg);
+	}
+}
+
+@keyframes sf-fold-bottom {
+	0% {
+		transform: rotateX(90deg);
+	}
+	100% {
+		transform: rotateX(0deg);
+	}
+}
+
+/* ----------------------------------------------------------------------
+ * Reduced Motion: keine Animation, sofort der statische Zieltext.
+ * -------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+	.split-flap__cell.is-flipping .split-flap__char {
+		opacity: 1;
+	}
+
+	.split-flap__cell .sf-flip-top,
+	.split-flap__cell .sf-flip-bottom {
+		display: none;
+	}
+}
