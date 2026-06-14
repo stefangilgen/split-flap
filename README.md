@@ -134,6 +134,19 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 
 Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion ausser dem Ton-Toggle, globale Settings-Seite, theme-übergreifendes Skin-System, Persistenz des Ton-Zustands über Seitenbesuche hinaus. Alle Optionen leben am Block beziehungsweise im Shortcode.
 
+## Changelog
+
+### 0.2.1
+
+- Behebt den DOM-Leak der Animations-Engine: Jeder Szenenwechsel bricht eine noch laufende Klappen-Animation sauber ab – vorgemerkte Timeouts werden gecancelt, alte Flip-Hälften entfernt. Im Ruhezustand existieren pro Klappe genau 0 Flip-Hälften, das Board kommt nach jeder Szene zur Ruhe.
+- Behebt den horizontalen Überlauf: Die Klappenbreite bindet jetzt per CSS Container Query (`container-type: inline-size`, Breite in `cqw`) an den verfügbaren Containerraum statt an den Viewport. Das Board passt in jedem Theme und auf Mobile ohne Scrollbar in seinen Container.
+- Board zentriert die Klappen, statt linksbündig zu sitzen.
+- Ton-Toggle-Icon vergrössert (klar erkennbar, Button-Target bleibt 28×28px).
+
+### 0.2.0
+
+- Mehrzeiliges Board mit automatischem Szenen-Wechsel, Farbflaps und synthetischem Klappersound. Einzeilige v1-Anzeige bleibt als Sonderfall erhalten.
+
 ## Lizenz
 
 GPL-2.0-or-later.

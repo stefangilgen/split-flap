@@ -438,11 +438,13 @@ function split_flap_render_board( $args ) {
 	$schrift_class = 'theme' === $o['schrift'] ? 'split-flap--font-theme' : 'split-flap--font-mono';
 
 	// Custom Properties für Farben und Tempo. Farbflaps liegen als --sf-color-N vor.
+	// --sf-stellen speist die Container-Query-Breite (Klappen passen in den Container).
 	$style = sprintf(
-		'--sf-text:%1$s;--sf-flap:%2$s;--sf-flip-ms:%3$dms;',
+		'--sf-text:%1$s;--sf-flap:%2$s;--sf-flip-ms:%3$dms;--sf-stellen:%4$d;',
 		esc_attr( $o['textfarbe'] ),
 		esc_attr( $o['klappenfarbe'] ),
-		(int) $flip_ms
+		(int) $flip_ms,
+		(int) $o['stellen']
 	);
 	for ( $i = 0; $i < 15; $i++ ) {
 		$style .= sprintf( '--sf-color-%1$d:%2$s;', $i + 1, esc_attr( $o['farben'][ $i ] ) );

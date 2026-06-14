@@ -253,6 +253,33 @@
 	}
 
 	/**
+	 * Bricht eine laufende Animation einer Klappe sauber ab.
+	 *
+	 * Stoppt alle vorgemerkten Timeouts der Klappe, entfernt sämtliche Flip-Hälften
+	 * (auch übrig gebliebene aus früheren Läufen) und setzt den Flip-Zustand zurück.
+	 * So schreibt nie ein zweiter Animationslauf auf dieselbe Klappe.
+	 *
+	 * @param {HTMLElement} cell Klappe.
+	 * @return {void}
+	 */
+	function cancelCellAnimation( cell ) {
+		var state = cell._sfAnim;
+		if ( state && state.timers ) {
+			for ( var t = 0; t < state.timers.length; t++ ) {
+				window.clearTimeout( state.timers[ t ] );
+			}
+		}
+		cell._sfAnim = null;
+
+		// Alle Flip-Hälften entfernen – auch verwaiste aus parallelen Läufen.
+		var stray = cell.querySelectorAll( '.sf-flip-top, .sf-flip-bottom' );
+		for ( var i = 0; i < stray.length; i++ ) {
+			cell.removeChild( stray[ i ] );
+		}
+		cell.classList.remove( 'is-flipping' );
+	}
+
+	/**
 	 * Animiert eine einzelne Klappe vom aktuellen Inhalt zum Ziel-Token.
 	 *
 	 * @param {HTMLElement} cell    Klappe.
@@ -263,7 +290,27 @@
 	 * @return {void}
 	 */
 	function animateCell( cell, config, target, delay, onStep ) {
+		// Laufende Animation derselben Klappe sauber abbrechen, bevor neue Hälften
+		// gebaut werden. Verhindert DOM-Leak und parallele Schreibzugriffe.
+		cancelCellAnimation( cell );
+
 		var halves = buildHalves( cell );
+
+		// Animationszustand pro Klappe merken (Timeout-Handles für sauberen Abbruch).
+		var state = { timers: [] };
+		cell._sfAnim = state;
+
+		/**
+		 * setTimeout, dessen Handle im Zustand der Klappe vermerkt wird.
+		 *
+		 * @param {Function} fn Rückruf.
+		 * @param {number}   ms Verzögerung.
+		 * @return {void}
+		 */
+		function schedule( fn, ms ) {
+			var id = window.setTimeout( fn, ms );
+			state.timers.push( id );
+		}
 
 		// Ausgangszeichen: was die Klappe aktuell zeigt.
 		var startGlyph = cell.querySelector( '.split-flap__char' );
@@ -284,6 +331,11 @@
 		var step = 0;
 
 		function doFlip() {
+			// Falls die Klappe inzwischen neu gestartet wurde, ist dieser Lauf veraltet.
+			if ( cell._sfAnim !== state ) {
+				return;
+			}
+
 			var next;
 			if ( step >= steps - 1 ) {
 				next = targetGlyph; // Letzter Schritt landet auf dem Ziel.
@@ -314,9 +366,12 @@
 			step++;
 
 			if ( step < steps ) {
-				window.setTimeout( doFlip, config.flipMs );
+				schedule( doFlip, config.flipMs );
 			} else {
-				window.setTimeout( function () {
+				schedule( function () {
+					if ( cell._sfAnim !== state ) {
+						return; // Veralteter Lauf – Cleanup macht der neue Lauf.
+					}
 					setStatic( cell, target );
 					cell.classList.remove( 'is-flipping' );
 					if ( halves.top.parentNode ) {
@@ -325,11 +380,12 @@
 					if ( halves.bottom.parentNode ) {
 						cell.removeChild( halves.bottom );
 					}
+					cell._sfAnim = null; // Klappe ruht: 0 Flip-Hälften.
 				}, config.flipMs );
 			}
 		}
 
-		window.setTimeout( doFlip, delay );
+		schedule( doFlip, delay );
 	}
 
 	/* ------------------------------------------------------------------ *
