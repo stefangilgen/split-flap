@@ -4,21 +4,37 @@
  * Aufgaben:
  *  1. IntersectionObserver startet jedes Board erst, wenn es sichtbar wird, und
  *     steuert den Szenen-Loop (pausiert ausserhalb des Viewports).
- *  2. Jede Stelle rattert vom alten zum neuen Inhalt; nur geänderte Stellen klappen.
+ *  2. Jede Stelle rattert vom alten zum neuen Inhalt.
  *  3. Szenen wechseln automatisch im konfigurierten Intervall (Loop).
- *  4. Jeder Wechsel feuert ein Custom-Event «splitflap:flip» am Board-Element.
- *  5. Sound: synthetisch über die Web Audio API (kein Audio-File), erst nach der
- *     ersten Nutzergeste am Ton-Toggle (Autoplay-Policy). Default stumm.
- *  6. prefers-reduced-motion: reduce → nur erste Szene statisch, kein Loop, kein Sound.
- *
- * Animation und Sound sind entkoppelt: der Sound hängt allein am Custom-Event.
+ *  4. Jeder Wechsel feuert ein Custom-Event «splitflap:flip» am Board-Element
+ *     (saubere Erweiterungsstelle für Drittcode; das Plugin selbst hört nicht zu).
+ *  5. Animationsstil: «sequenziell» (versetzt, nur geänderte Stellen) oder
+ *     «synchron» (alle Klappen starten gleichzeitig bei Farbe 1 und laufen durch
+ *     den vollständigen Farb-/Zeichen-Ring).
+ *  6. prefers-reduced-motion: reduce → nur erste Szene statisch, kein Loop.
  */
 ( function () {
 	'use strict';
 
 	var REDUCED = window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches;
 
-	var ALPHA_SEQUENCE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+	// Vollständiger Zeichen-Teil des Rings (48 Positionen): A–Z, 0–9, Leer an
+	// Position 37, dann die elf Sonderzeichen in fester Reihenfolge.
+	var ALPHA_SEQUENCE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-.,–%&*?!/';
+
+	// Die 15 Farbflaps in Index-Reihenfolge (c1 … c15) – Anfang des Modus-B-Rings.
+	var COLOR_RING = [
+		'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8',
+		'c9', 'c10', 'c11', 'c12', 'c13', 'c14', 'c15'
+	];
+
+	// Vollständiger Modus-B-Ring: zuerst 15 Farben, dann 48 Zeichen-Positionen.
+	// Ringlänge = 63. Jede Klappe läuft ihn genau einmal und stoppt auf dem Ziel.
+	var SYNC_RING = COLOR_RING.concat( Array.from( ALPHA_SEQUENCE ) );
+
+	// Obergrenze des Modus-B-Ticks (ms). Der längste Durchlauf (Ziel «/», Position
+	// 63) bei «normal» soll ≤ 2.5 s bleiben: 2500 / 63 ≈ 39 ms.
+	var SYNC_TICK_CAP_MS = 39;
 
 	// Höchstzahl Zwischenschritte pro Klappe. Deterministische Obergrenze, damit
 	// die längste mögliche Animationsdauer im Voraus berechenbar ist (Aufgabe 1).
@@ -76,112 +92,6 @@
 		}
 
 		return { init: init };
-	} )();
-
-	/* ------------------------------------------------------------------ *
-	 * Sound: gemeinsamer AudioContext, erst nach Nutzergeste entsperrt.
-	 * ------------------------------------------------------------------ */
-	var Sound = ( function () {
-		var ctx = null;
-		var noiseBuffer = null;
-
-		/**
-		 * Entsperrt (oder erstellt) den AudioContext. Muss aus einer Nutzergeste
-		 * heraus laufen, sonst greift die Autoplay-Sperre.
-		 *
-		 * @return {boolean} true, wenn ein laufender Context vorliegt.
-		 */
-		function unlock() {
-			var AC = window.AudioContext || window.webkitAudioContext;
-			if ( ! AC ) {
-				return false;
-			}
-			if ( ! ctx ) {
-				try {
-					ctx = new AC();
-				} catch ( e ) {
-					return false;
-				}
-			}
-			if ( 'suspended' === ctx.state && ctx.resume ) {
-				ctx.resume();
-			}
-			if ( ! noiseBuffer ) {
-				noiseBuffer = buildNoiseBuffer( ctx );
-			}
-			return 'running' === ctx.state || 'suspended' === ctx.state;
-		}
-
-		/**
-		 * Baut einen kurzen Rauschpuffer (Quelle für das perkussive Klappern).
-		 *
-		 * @param {AudioContext} context AudioContext.
-		 * @return {AudioBuffer} Rauschpuffer.
-		 */
-		function buildNoiseBuffer( context ) {
-			var len = Math.floor( context.sampleRate * 0.05 );
-			var buffer = context.createBuffer( 1, len, context.sampleRate );
-			var data = buffer.getChannelData( 0 );
-			for ( var i = 0; i < len; i++ ) {
-				data[ i ] = Math.random() * 2 - 1;
-			}
-			return buffer;
-		}
-
-		/**
-		 * Spielt n perkussive Klicks (gefiltertes Rauschen, sehr kurze Hüllkurve).
-		 * Die Zahl gleichzeitiger Impulse wird gedeckelt, damit es nicht übersteuert.
-		 *
-		 * @param {number} count Zahl umklappender Stellen.
-		 * @return {void}
-		 */
-		function clatter( count ) {
-			if ( ! ctx || 'running' !== ctx.state || ! noiseBuffer ) {
-				return;
-			}
-
-			// Max. 8 Impulse pro Aufruf gegen Übersteuern (Spezifikation).
-			var impulses = Math.max( 1, Math.min( 8, count ) );
-			// Lautstärke pro Impuls zusätzlich gegen die Zahl der Klappen skalieren.
-			var perGain = 0.18 / Math.sqrt( impulses );
-
-			for ( var i = 0; i < impulses; i++ ) {
-				playClick( perGain, i * 0.012 + Math.random() * 0.01 );
-			}
-		}
-
-		/**
-		 * Ein einzelner Klick: Rauschquelle → Bandpass → Hüllkurve.
-		 *
-		 * @param {number} gain  Spitzen-Lautstärke.
-		 * @param {number} delay Startverzögerung in Sekunden.
-		 * @return {void}
-		 */
-		function playClick( gain, delay ) {
-			var now = ctx.currentTime + delay;
-
-			var src = ctx.createBufferSource();
-			src.buffer = noiseBuffer;
-
-			var filter = ctx.createBiquadFilter();
-			filter.type = 'bandpass';
-			filter.frequency.value = 1400 + Math.random() * 800;
-			filter.Q.value = 0.8;
-
-			var env = ctx.createGain();
-			env.gain.setValueAtTime( 0.0001, now );
-			env.gain.exponentialRampToValueAtTime( gain, now + 0.002 );
-			env.gain.exponentialRampToValueAtTime( 0.0001, now + 0.045 );
-
-			src.connect( filter );
-			filter.connect( env );
-			env.connect( ctx.destination );
-
-			src.start( now );
-			src.stop( now + 0.06 );
-		}
-
-		return { unlock: unlock, clatter: clatter };
 	} )();
 
 	/* ------------------------------------------------------------------ *
@@ -447,6 +357,111 @@
 		schedule( doFlip, delay );
 	}
 
+	/**
+	 * Position eines Ziel-Tokens im vollständigen Modus-B-Ring (SYNC_RING).
+	 *
+	 * @param {string} token Ziel-Token (cN, Zeichen oder ' ').
+	 * @return {number} Index im Ring (0-basiert); SYNC_RING.length-1 als Fallback.
+	 */
+	function syncRingIndex( token ) {
+		var t = ( ' ' === token || '' === token ) ? ' ' : token;
+		var idx = SYNC_RING.indexOf( t );
+		return idx >= 0 ? idx : SYNC_RING.length - 1;
+	}
+
+	/**
+	 * Animiert eine Klappe im Modus B (synchron farbig).
+	 *
+	 * Alle Klappen starten gleichzeitig (delay = 0) bei Farbflap 1 und durchlaufen
+	 * denselben Ring (c1…c15, dann 48 Zeichen) im selben Takt, Schritt für Schritt,
+	 * bis sie ihr Zielzeichen erreichen. Dadurch zeigt das ganze Board zu jedem
+	 * Tick dieselbe Ring-Position (farbige Welle); gestoppt wird gestaffelt nach
+	 * Zielposition.
+	 *
+	 * @param {HTMLElement} cell   Klappe.
+	 * @param {string}      target Ziel-Token.
+	 * @param {number}      tickMs Takt je Ring-Schritt in ms.
+	 * @return {void}
+	 */
+	function animateCellSync( cell, target, tickMs ) {
+		cancelCellAnimation( cell );
+
+		var halves = buildHalves( cell );
+		var state = { timers: [] };
+		cell._sfAnim = state;
+
+		function schedule( fn, ms ) {
+			var id = window.setTimeout( fn, ms );
+			state.timers.push( id );
+		}
+
+		var stopIndex = syncRingIndex( target );
+
+		// Ausgangswert: was die Klappe gerade zeigt (Text der ersten/alten Szene).
+		var startGlyph = cell.querySelector( '.split-flap__char' );
+		var current = startGlyph ? startGlyph.textContent : '';
+
+		cell.classList.add( 'is-flipping' );
+		halves.topGlyph.textContent = current;
+		halves.bottomGlyph.textContent = current;
+
+		var step = 0; // Ring-Position des nächsten anzuzeigenden Tokens.
+
+		function tokenGlyph( token ) {
+			return isColorToken( token ) || ' ' === token || '' === token ? '' : token;
+		}
+
+		function doTick() {
+			if ( cell._sfAnim !== state ) {
+				return;
+			}
+
+			var token = SYNC_RING[ step ];
+			var isColor = isColorToken( token );
+
+			halves.topGlyph.textContent = current;
+			halves.bottomGlyph.textContent = tokenGlyph( token );
+
+			if ( isColor ) {
+				halves.bottom.style.background = 'var(--sf-color-' + token.slice( 1 ) + ')';
+			} else {
+				halves.bottom.style.background = '';
+			}
+
+			halves.top.classList.remove( 'sf-anim' );
+			halves.bottom.classList.remove( 'sf-anim' );
+			void halves.top.offsetWidth;
+			halves.top.classList.add( 'sf-anim' );
+			halves.bottom.classList.add( 'sf-anim' );
+
+			current = tokenGlyph( token );
+			var reachedTarget = step >= stopIndex;
+			step++;
+
+			if ( ! reachedTarget ) {
+				schedule( doTick, tickMs );
+			} else {
+				schedule( function () {
+					if ( cell._sfAnim !== state ) {
+						return;
+					}
+					setStatic( cell, target );
+					cell.classList.remove( 'is-flipping' );
+					if ( halves.top.parentNode ) {
+						cell.removeChild( halves.top );
+					}
+					if ( halves.bottom.parentNode ) {
+						cell.removeChild( halves.bottom );
+					}
+					cell._sfAnim = null;
+				}, tickMs );
+			}
+		}
+
+		// Alle Klappen starten im selben Frame (delay 0) – synchroner Start.
+		schedule( doTick, 0 );
+	}
+
 	/* ------------------------------------------------------------------ *
 	 * Board-Controller: hält Szenen, steuert Wechsel und Loop.
 	 * ------------------------------------------------------------------ */
@@ -473,6 +488,13 @@
 			flipMs: flipMs
 		};
 
+		// Animationsstil: «synchron» (Modus B) oder «sequenziell» (Default, Modus A).
+		var stil = board.getAttribute( 'data-sf-stil' ) === 'synchron' ? 'synchron' : 'sequenziell';
+
+		// Modus-B-Tick: gedeckelt, damit der längste Ring-Durchlauf (63 Schritte)
+		// bei «normal» ≤ 2.5 s bleibt.
+		var syncTickMs = Math.min( flipMs, SYNC_TICK_CAP_MS );
+
 		var intervalSec = parseInt( board.getAttribute( 'data-sf-intervall' ), 10 ) || 6;
 
 		// Aktuelle Token je Stelle (flach, in DOM-Reihenfolge der Zellen).
@@ -480,7 +502,6 @@
 
 		var sceneIndex = 0;
 		var loopTimer = null;
-		var soundOn = false;
 		var started = false;
 		// Dauer des Erstaufbaus; dient als Ruhebasis für den ersten geplanten Wechsel.
 		var firstBuildDurationMs = 0;
@@ -523,6 +544,44 @@
 		}
 
 		/**
+		 * Volle Dauer eines Modus-B-Durchlaufs: kompletter Ring plus Abschluss-Tick.
+		 *
+		 * Alle Klappen starten synchron; der längste Durchlauf erreicht die letzte
+		 * Ring-Position. Darauf stützen sich Intervall-Deckel und Ruhefenster.
+		 *
+		 * @return {number} Dauer in ms.
+		 */
+		function syncDurationMs() {
+			return ( SYNC_RING.length + 1 ) * syncTickMs;
+		}
+
+		/**
+		 * Wechselt im Modus B (synchron farbig) zur Szene idx. ALLE Klappen flippen,
+		 * auch unveränderte, starten gleichzeitig bei Farbe 1 und laufen durch den
+		 * vollständigen Ring bis zum jeweiligen Ziel.
+		 *
+		 * @param {number} idx Ziel-Szenenindex.
+		 * @return {number} Dauer des Durchlaufs in ms.
+		 */
+		function goToSceneSync( idx ) {
+			var target = flattenScene( scenes[ idx ] );
+
+			for ( var i = 0; i < cells.length; i++ ) {
+				var to = i < target.length ? target[ i ] : ' ';
+				animateCellSync( cells[ i ], to, syncTickMs );
+			}
+
+			currentTokens = target;
+			sceneIndex = idx;
+
+			board.dispatchEvent( new CustomEvent( 'splitflap:flip', {
+				detail: { changed: cells.length, sceneIndex: idx, stil: 'synchron' }
+			} ) );
+
+			return syncDurationMs();
+		}
+
+		/**
 		 * Wechselt animiert zur Szene mit gegebenem Index. Nur geänderte Stellen
 		 * klappen. Feuert «splitflap:flip» mit der Zahl umklappender Stellen.
 		 *
@@ -530,6 +589,10 @@
 		 * @return {number} Längste Animationsdauer dieses Wechsels in ms.
 		 */
 		function goToScene( idx ) {
+			if ( 'synchron' === stil ) {
+				return goToSceneSync( idx );
+			}
+
 			var target = flattenScene( scenes[ idx ] );
 			var changed = 0;
 			var stagger = Math.max( 18, flipMs * 0.6 );
@@ -542,9 +605,7 @@
 				}
 				changed++;
 				( function ( cell, token, order ) {
-					animateCell( cell, config, token, ( order - 1 ) * stagger, function () {
-						// Sound hängt am Custom-Event, nicht direkt hier.
-					} );
+					animateCell( cell, config, token, ( order - 1 ) * stagger, null );
 				} )( cells[ i ], to, changed );
 			}
 
@@ -686,35 +747,6 @@
 		 */
 		function deactivate() {
 			stopLoop();
-		}
-
-		// Sound an das Custom-Event hängen.
-		board.addEventListener( 'splitflap:flip', function ( ev ) {
-			if ( ! soundOn || REDUCED ) {
-				return;
-			}
-			var changed = ev.detail && ev.detail.changed ? ev.detail.changed : 0;
-			if ( changed > 0 ) {
-				Sound.clatter( changed );
-			}
-		} );
-
-		// Ton-Toggle verdrahten.
-		var toggle = board.querySelector( '.split-flap__sound' );
-		if ( toggle ) {
-			toggle.addEventListener( 'click', function () {
-				if ( ! soundOn ) {
-					var ok = Sound.unlock(); // Erste Nutzergeste entsperrt den Context.
-					soundOn = ok;
-				} else {
-					soundOn = false;
-				}
-				toggle.setAttribute( 'aria-pressed', soundOn ? 'true' : 'false' );
-				var label = soundOn
-					? ( toggle.getAttribute( 'data-sf-sound-on' ) || 'Ton ausschalten' )
-					: ( toggle.getAttribute( 'data-sf-sound-off' ) || 'Ton einschalten' );
-				toggle.setAttribute( 'aria-label', label );
-			} );
 		}
 
 		return { activate: activate, deactivate: deactivate, el: board };

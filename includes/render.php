@@ -29,6 +29,7 @@ function split_flap_allowed_values() {
 		'start'   => array( 'zufall', 'leer', 'alpha' ),
 		'zeichen' => array( 'alnum', 'zahlen', 'erweitert' ),
 		'schrift' => array( 'mono', 'theme' ),
+		'stil'    => array( 'sequenziell', 'synchron' ),
 	);
 }
 
@@ -76,6 +77,43 @@ function split_flap_default_palette() {
 		'#2B2B2B', // 14 Anthrazit
 		'#F4F4F4', // 15 Weiss
 	);
+}
+
+/**
+ * Die elf erlaubten Sonderzeichen, in verbindlicher Ring-Reihenfolge.
+ *
+ * Bindestrich/Minus «-» (U+002D) und Halbgeviertstrich «–» (U+2013) sind zwei
+ * verschiedene, jeweils erlaubte Zeichen.
+ *
+ * @return array<int, string> Sonderzeichen.
+ */
+function split_flap_special_chars() {
+	return array( '+', '-', '.', ',', '–', '%', '&', '*', '?', '!', '/' );
+}
+
+/**
+ * Liefert den vollständigen Zeichen-Teil des Animationsrings (48 Positionen).
+ *
+ * Reihenfolge: A–Z (26), 0–9 (10), Leer (1), elf Sonderzeichen. Das Leerzeichen
+ * liegt an Position 37. Dieser String speist auch das Attribut data-sf-charset.
+ *
+ * @return string 48er-Zeichen-Teil.
+ */
+function split_flap_alpha_sequence() {
+	return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ' . implode( '', split_flap_special_chars() );
+}
+
+/**
+ * Liefert die vollständige Whitelist erlaubter Einzelzeichen.
+ *
+ * A–Z, 0–9, Leerzeichen und die elf Sonderzeichen. Alles andere wird zur
+ * Leer-Klappe normalisiert.
+ *
+ * @return array<int, string> Erlaubte Zeichen.
+ */
+function split_flap_allowed_chars() {
+	$alpha = str_split( 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789' );
+	return array_merge( $alpha, array( ' ' ), split_flap_special_chars() );
 }
 
 /**
@@ -224,21 +262,26 @@ function split_flap_parse_line( $zeile, $grossschrift ) {
 }
 
 /**
- * Normalisiert ein Einzelzeichen auf den erlaubten Zeichensatz (A–Z, 0–9, Leer).
+ * Normalisiert ein Einzelzeichen auf den erlaubten Zeichensatz.
  *
- * Zeichen ausserhalb des Satzes werden zu Leerzeichen (Leer-Klappe), kein Fehler.
+ * Erlaubt sind A–Z, 0–9, Leerzeichen und die elf Sonderzeichen
+ * (+ - . , – % & * ? ! /). Zeichen ausserhalb der Whitelist werden zu
+ * Leerzeichen (Leer-Klappe), kein Fehler.
+ *
+ * Die Prüfung läuft per in_array() gegen split_flap_allowed_chars(), nicht per
+ * Regex-Zeichenklasse: der Halbgeviertstrich «–» ist mehrbyte, mehrere
+ * Sonderzeichen sind in Zeichenklassen ohnehin heikel.
  *
  * @param string $ch          Einzelzeichen.
  * @param bool   $grossschrift Wandelt Buchstaben in Grossbuchstaben.
- * @return string Ein Zeichen aus A–Z, 0–9 oder ' '.
+ * @return string Ein erlaubtes Zeichen oder ' '.
  */
 function split_flap_normalize_char( $ch, $grossschrift ) {
 	if ( $grossschrift ) {
 		$ch = function_exists( 'mb_strtoupper' ) ? mb_strtoupper( $ch, 'UTF-8' ) : strtoupper( $ch );
 	}
 
-	// Erlaubt sind A–Z, 0–9 und Leerzeichen. Alles andere wird zur Leer-Klappe.
-	if ( preg_match( '/^[A-Z0-9]$/', $ch ) ) {
+	if ( in_array( $ch, split_flap_allowed_chars(), true ) ) {
 		return $ch;
 	}
 
@@ -387,6 +430,8 @@ function split_flap_sanitize_board_args( $args ) {
 
 	$schrift = ( isset( $args['schrift'] ) && in_array( $args['schrift'], $allowed['schrift'], true ) ) ? $args['schrift'] : 'mono';
 
+	$stil = ( isset( $args['stil'] ) && in_array( $args['stil'], $allowed['stil'], true ) ) ? $args['stil'] : 'sequenziell';
+
 	$gross = isset( $args['grossschrift'] )
 		? filter_var( $args['grossschrift'], FILTER_VALIDATE_BOOLEAN )
 		: true;
@@ -414,6 +459,7 @@ function split_flap_sanitize_board_args( $args ) {
 		'textfarbe'    => $textfarbe,
 		'klappenfarbe' => $klappenfarbe,
 		'schrift'      => $schrift,
+		'stil'         => $stil,
 		'align'        => $align,
 	);
 }
@@ -464,7 +510,8 @@ function split_flap_render_board( $args ) {
 		$style .= sprintf( '--sf-color-%1$d:%2$s;', $i + 1, esc_attr( $o['farben'][ $i ] ) );
 	}
 
-	$charset = split_flap_charset( 'alnum' );
+	// Vollständiger Zeichen-Teil des Rings (48 Positionen inkl. Sonderzeichen).
+	$charset = split_flap_alpha_sequence();
 
 	// Erste Szene ist der initial sichtbare Zustand (Aufbau-Animation startet hier).
 	$erste = $szenen_raster[0];
@@ -475,18 +522,10 @@ function split_flap_render_board( $args ) {
 	$out .= ' style="' . esc_attr( $style ) . '"';
 	$out .= ' data-sf-charset="' . esc_attr( $charset ) . '"';
 	$out .= ' data-sf-intervall="' . esc_attr( (int) $o['intervall'] ) . '"';
+	$out .= ' data-sf-stil="' . esc_attr( $o['stil'] ) . '"';
 	$out .= ' data-sf-szenen="' . esc_attr( (int) count( $szenen_raster ) ) . '"';
 	$out .= ' data-sf-zeilen="' . esc_attr( (int) $o['zeilen'] ) . '"';
 	$out .= ' data-sf-stellen="' . esc_attr( (int) $o['stellen'] ) . '">';
-
-	// Ton-Toggle: echtes <button>, Default «aus». Erst die erste Nutzergeste
-	// entsperrt den AudioContext (siehe split-flap.js).
-	$out .= '<button type="button" class="split-flap__sound" aria-pressed="false"';
-	$out .= ' data-sf-sound-on="' . esc_attr__( 'Ton ausschalten', 'split-flap' ) . '"';
-	$out .= ' data-sf-sound-off="' . esc_attr__( 'Ton einschalten', 'split-flap' ) . '"';
-	$out .= ' aria-label="' . esc_attr__( 'Ton einschalten', 'split-flap' ) . '">';
-	$out .= '<span class="split-flap__sound-icon" aria-hidden="true"></span>';
-	$out .= '</button>';
 
 	// Screenreader-Text: zusammenhängender String der ersten Szene, visuell versteckt.
 	$out .= '<span class="split-flap__sr">' . esc_html( $sr_text ) . '</span>';

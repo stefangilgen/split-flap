@@ -8,11 +8,11 @@ Internes Experiment von Blitz & Donner. Kein Kundenprojekt.
 
 Eine Redaktorin setzt einen kurzen Text. Das Plugin rendert ihn als Reihe mechanischer Klappen, die beim Erscheinen im Viewport vom Startzustand zum Zieltext durchrattern und versetzt von links nach rechts stoppen.
 
-Ab Version 0.2.0 gibt es zwei Anzeigen: die einzeilige Tafel aus v1 und ein mehrzeiliges **Board** (Departure-Board) mit automatischem Szenen-Wechsel, Farbflaps und synthetischem Klappersound.
+Ab Version 0.2.0 gibt es zwei Anzeigen: die einzeilige Tafel aus v1 und ein mehrzeiliges **Board** (Departure-Board) mit automatischem Szenen-Wechsel und Farbflaps.
 
 ## Das Board (v2)
 
-Das Board ist eine Abfahrtstafel mit fester Zeilen- und Stellenzahl, Default **6 Zeilen × 25 Stellen** (150 Klappen). Es hält eine oder mehrere **Szenen**; bei mehr als einer Szene wechselt es automatisch in einem Intervall durch und rattert dabei nur die geänderten Stellen. Jeder Wechsel kann von einem Klappersound begleitet werden, der erst nach einer Nutzergeste am Ton-Toggle klingt.
+Das Board ist eine Abfahrtstafel mit fester Zeilen- und Stellenzahl, Default **6 Zeilen × 25 Stellen** (150 Klappen). Es hält eine oder mehrere **Szenen**; bei mehr als einer Szene wechselt es automatisch in einem Intervall durch. Im Standard-Stil «sequenziell» rattern nur die geänderten Stellen versetzt von links nach rechts.
 
 Das eingestellte Intervall ist eine Untergrenze, kein starrer Takt. Die Engine startet den nächsten Wechsel erst, wenn der vorige vollständig abgeschlossen ist und das Board kurz geruht hat. Das **effektive Intervall** ist deshalb `max(eingestelltes Intervall, längste Animationsdauer + Ruhepuffer)`. So kollidiert ein Wechsel nie mit einer noch laufenden Animation – auch bei Intervall 2 s und 150 geänderten Stellen zeigt das Board zwischen den Wechseln immer ein klares, scharfes Bild.
 
@@ -24,9 +24,18 @@ Im Text setzt die Syntax `{1}` bis `{15}` einen farbigen Block. Jede Markierung 
 
 Die Optik orientiert sich am Projekt **roosterfish/fallblatt** – übernommen wurde der Look (Schrift Overpass Mono, helles Grau auf dunklen Klappen, horizontaler Mittelspalt mit seitlichen Achsstummeln als Scharniere, dunkles Anthrazit). Der jQuery-Code der Referenz wurde **nicht** übernommen; das Plugin bleibt bei eigener Vanilla-JS-Umsetzung ohne Drittbibliothek.
 
-### Sound
+### Zeichensatz
 
-Der Klappersound entsteht synthetisch über die Web Audio API – keine Audiodatei, keine Bibliothek. Pro umklappender Stelle ein kurzer perkussiver Klick aus gefiltertem Rauschen; viele Stellen ergeben das Rattern. Die Lautstärke ist gedeckelt, damit 150 Klappen nicht übersteuern. Default ist stumm: erst der Klick auf den Ton-Toggle (echtes `<button>` mit `aria-pressed`, per Tastatur bedienbar) entsperrt den AudioContext und schaltet den Ton ein. Bei *Bewegung reduzieren* bleibt der Toggle sichtbar, aber wirkungslos.
+Jede Klappe stellt A–Z, 0–9, das Leerzeichen und elf Sonderzeichen dar: `+ - . , – % & * ? ! /`. Bindestrich/Minus «-» (U+002D) und Halbgeviertstrich «–» (U+2013) sind zwei verschiedene, jeweils erlaubte Zeichen. Zeichen ausserhalb dieser Liste werden zur Leer-Klappe – kein Fehler. Beim animierten Wechsel laufen die Sonderzeichen als Teil des Rings mit durch.
+
+### Animationsstil
+
+Der Block- und Shortcode-Parameter `stil` steuert den Szenenwechsel:
+
+- **Sequenziell (versetzt)** – Default, Wert `sequenziell`. Nur geänderte Stellen klappen, versetzt von links nach rechts, mit gewürfelten Zwischenschritten. Verhalten unverändert gegenüber früheren Versionen.
+- **Synchron farbig** – Wert `synchron`. Beim Wechsel klappen **alle** Stellen gleichzeitig. Sie starten im selben Moment bei Farbflap 1 und durchlaufen denselben vollständigen Ring (15 Farben c1…c15, dann die 48 Zeichen-Positionen) im selben Takt; jede Klappe stoppt bei ihrem Zielzeichen. So entsteht eine farbige Welle mit gestaffeltem Ende. Der Takt ist gedeckelt, sodass der längste Durchlauf bei Tempo «normal» rund 2.5 s nicht überschreitet. Der Erstaufbau bleibt in beiden Stilen sequenziell; der synchrone Vollring greift erst ab dem ersten Szenenwechsel.
+
+Bei *Bewegung reduzieren* (`prefers-reduced-motion: reduce`) zeigt das Board in beiden Stilen nur die erste Szene statisch – kein Loop, kein Durchlauf.
 
 ## Installation
 
@@ -40,9 +49,9 @@ Es gibt keinen Build-Schritt. Der Block läuft build-frei über `wp.element` –
 Es gibt zwei Blöcke (Kategorie *Medien*):
 
 - **Split-Flap** – die einzeilige Tafel aus v1.
-- **Split-Flap-Board** – das mehrzeilige Board mit Szenen, Farbflaps und Sound.
+- **Split-Flap-Board** – das mehrzeilige Board mit Szenen und Farbflaps.
 
-Beim Board legt die Redaktorin im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation und Sound* das Loop-Intervall, Tempo und die Schrift, im Panel *Farbflaps* die 15 Farben. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation, Loop und Sound laufen erst im Frontend.
+Beim Board legt die Redaktorin im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation* das Loop-Intervall, Tempo, der Animationsstil und die Schrift, im Panel *Farbflaps* die 15 Farben. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation und Loop laufen erst im Frontend.
 
 Ist eine Zeile länger als die Stellenzahl oder hat eine Szene mehr Zeilen als das Board, kürzt der Block und blendet im Editor einen Hinweis ein.
 
@@ -72,10 +81,10 @@ Board (v2):
 [split_flap_board
   scene1="ABFAHRT GLEIS 7|ZUG NACH BERN {1} 10:32|INTERCITY VERSPAETUNG"
   scene2="ANKUNFT GLEIS 3|ZUG AUS THUN {6} 10:48|REGIO PUENKTLICH"
-  zeilen="6" stellen="25" intervall="6" tempo="normal"]
+  zeilen="6" stellen="25" intervall="6" tempo="normal" stil="synchron"]
 ```
 
-Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeilen. Eine einzige Szene ergibt ein statisches Board ohne Wechsel und ohne Sound. Block und Shortcode teilen sich dieselbe Render-Funktion – das Frontend-Ergebnis ist identisch.
+Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeilen. Eine einzige Szene ergibt ein statisches Board ohne Wechsel. Block und Shortcode teilen sich dieselbe Render-Funktion – das Frontend-Ergebnis ist identisch.
 
 ### Board-Shortcode-Parameter
 
@@ -86,6 +95,7 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 | `stellen` | Zahl `1`–`60` | `25` | Stellen pro Zeile |
 | `intervall` | Zahl `2`–`30` | `6` | Loop-Intervall in Sekunden (nur bei mehreren Szenen) |
 | `tempo` | `langsam` / `normal` / `schnell` | `normal` | Tempo des Durchratterns pro Klappe |
+| `stil` | `sequenziell` / `synchron` | `sequenziell` | Animationsstil des Szenenwechsels (siehe Abschnitt Animationsstil) |
 | `farben` | 15 Hex-Werte, kommagetrennt | Default-Palette | Farben der `{1}`–`{15}`-Syntax |
 | `schrift` | `mono` / `theme` | `mono` | Schriftbild der Klappe |
 | `grossschrift` | `true` / `false` | `true` | Wandelt die Eingabe in Grossbuchstaben |
@@ -120,8 +130,7 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 ## Barrierefreiheit
 
 - Der Zieltext steht für Screenreader als zusammenhängender String in einem visuell versteckten Element; die animierten Klappen tragen `aria-hidden`.
-- Bei der Systemeinstellung *Bewegung reduzieren* (`prefers-reduced-motion: reduce`) zeigt das Board nur die erste Szene statisch – kein Loop, kein Sound.
-- Der Ton-Toggle ist ein echtes `<button>` mit `aria-pressed` und beschreibendem Label, per Tastatur erreichbar und mit Enter oder Leertaste bedienbar. Sound ist nie Default-an und trägt keine Information.
+- Bei der Systemeinstellung *Bewegung reduzieren* (`prefers-reduced-motion: reduce`) zeigt das Board in beiden Animationsstilen nur die erste Szene statisch – kein Loop, kein Durchlauf.
 - Der Default-Farbkontrast (Text `#C8C8C8` auf Klappe `#1A1A1A`) liegt bei rund 9:1 und damit über der Schwelle von 4.5:1.
 
 ## Performance
@@ -142,13 +151,19 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 | `blocks/split-flap/` | Einzeiliger v1-Block (Metadaten, Editor) |
 | `blocks/split-flap-board/` | Board-Block v2 (Metadaten, Editor) |
 | `assets/css/split-flap.css` | Klappen-Stile, fallblatt-Look, Flip-Keyframes, Reduced-Motion |
-| `assets/js/split-flap.js` | Board-Engine: IntersectionObserver, Szenen-Loop, Flip-Mechanik, Web-Audio-Sound |
+| `assets/js/split-flap.js` | Board-Engine: IntersectionObserver, Szenen-Loop, Flip-Mechanik (sequenziell und synchron) |
 
 ## Scope-Grenze v2
 
-Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion ausser dem Ton-Toggle, globale Settings-Seite, theme-übergreifendes Skin-System, Persistenz des Ton-Zustands über Seitenbesuche hinaus. Alle Optionen leben am Block beziehungsweise im Shortcode.
+Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion, globale Settings-Seite, theme-übergreifendes Skin-System. Alle Optionen leben am Block beziehungsweise im Shortcode.
 
 ## Changelog
+
+### 0.3.2
+
+- Sound vollständig entfernt: kein synthetischer Klappersound, kein Ton-Toggle, keine Web-Audio-Nutzung mehr. Das Custom-Event `splitflap:flip` am Board-Element bleibt als Erweiterungsstelle erhalten.
+- Zeichensatz um elf Sonderzeichen erweitert: `+ - . , – % & * ? ! /`. Bindestrich/Minus «-» (U+002D) und Halbgeviertstrich «–» (U+2013) sind zwei verschiedene, jeweils erlaubte Zeichen. Sie erscheinen auch im animierten Durchlauf.
+- Neuer Animationsstil-Schalter `stil` (Block, Shortcode, Editor-Panel *Animation*). «Sequenziell (versetzt)» bleibt Default und verhält sich unverändert. «Synchron farbig» lässt beim Szenenwechsel alle Klappen gleichzeitig bei Farbflap 1 starten und durch den vollständigen Ring (15 Farben, dann 48 Zeichen) laufen; jede stoppt bei ihrem Ziel. Der Takt ist gedeckelt, sodass der längste Durchlauf bei Tempo «normal» rund 2.5 s nicht überschreitet. *Bewegung reduzieren* gilt in beiden Stilen.
 
 ### 0.3.1
 

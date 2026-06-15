@@ -5,7 +5,7 @@
 	"title": "Split-Flap-Board",
 	"category": "media",
 	"icon": "grid-view",
-	"description": "Mehrzeilige Fallblattanzeige (Departure-Board) mit Szenen-Wechsel, Farbflaps und synthetischem Klappersound.",
+	"description": "Mehrzeilige Fallblattanzeige (Departure-Board) mit Szenen-Wechsel und Farbflaps.",
 	"keywords": [ "split-flap", "fallblatt", "board", "abfahrtstafel", "bahnhof", "flip" ],
 	"textdomain": "split-flap",
 	"supports": {
@@ -36,6 +36,10 @@
 		"tempo": {
 			"type": "string",
 			"default": "normal"
+		},
+		"stil": {
+			"type": "string",
+			"default": "sequenziell"
 		},
 		"schrift": {
 			"type": "string",

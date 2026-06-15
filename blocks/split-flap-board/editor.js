@@ -2,7 +2,7 @@
  * Split-Flap-Board – Editor-Integration (build-frei).
  *
  * Ohne JSX und ohne Build-Schritt: wp.element.createElement direkt. Die Vorschau
- * im Editor ist statisch (zeigt die erste Szene) – Flip-Animation, Loop und Sound
+ * im Editor ist statisch (zeigt die erste Szene) – Flip-Animation und Loop
  * gehören ins Frontend.
  */
 ( function ( wp ) {
@@ -27,6 +27,11 @@
 
 	var MAX_ZEILEN = 30;
 	var MAX_STELLEN = 60;
+
+	// Erlaubte Einzelzeichen: A–Z, 0–9, Leer und die elf Sonderzeichen. Bindestrich
+	// «-» (U+002D) und Halbgeviertstrich «–» (U+2013) sind zwei verschiedene Zeichen.
+	// Prüfung per indexOf statt Regex-Zeichenklasse wegen Mehrbyte-«–».
+	var ALLOWED_CHARS = Array.from( 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-.,–%&*?!/' );
 
 	var DEFAULT_PALETTE = [
 		'#E23B2E', '#F08A24', '#F4B400', '#FCE300', '#A8C700',
@@ -75,7 +80,7 @@
 				continue;
 			}
 			var norm = grossschrift ? ch.toUpperCase() : ch;
-			if ( ! /^[A-Z0-9]$/.test( norm ) ) {
+			if ( ALLOWED_CHARS.indexOf( norm ) < 0 ) {
 				norm = ' ';
 			}
 			out.push( { type: 'char', value: norm } );
@@ -199,11 +204,6 @@
 			var preview = el(
 				'div',
 				blockProps,
-				el(
-					'button',
-					{ type: 'button', className: 'split-flap__sound', 'aria-pressed': 'false', tabIndex: -1 },
-					el( 'span', { className: 'split-flap__sound-icon', 'aria-hidden': 'true' } )
-				),
 				el( 'div', { className: 'split-flap__rows', 'aria-hidden': 'true' }, rows )
 			);
 
@@ -345,7 +345,7 @@
 				),
 				el(
 					PanelBody,
-					{ title: __( 'Animation und Sound', 'split-flap' ), initialOpen: false },
+					{ title: __( 'Animation', 'split-flap' ), initialOpen: false },
 					el( RangeControl, {
 						label: __( 'Loop-Intervall (Sekunden)', 'split-flap' ),
 						value: attributes.intervall,
@@ -367,6 +367,18 @@
 						onChange: function ( value ) {
 							setAttributes( { tempo: value } );
 						}
+					} ),
+					el( SelectControl, {
+						label: __( 'Animationsstil', 'split-flap' ),
+						value: attributes.stil,
+						options: [
+							{ label: __( 'Sequenziell (versetzt)', 'split-flap' ), value: 'sequenziell' },
+							{ label: __( 'Synchron farbig', 'split-flap' ), value: 'synchron' }
+						],
+						onChange: function ( value ) {
+							setAttributes( { stil: value } );
+						},
+						help: __( 'Synchron farbig: alle Klappen laufen beim Szenenwechsel gemeinsam durch die Farben.', 'split-flap' )
 					} ),
 					el( SelectControl, {
 						label: __( 'Schrift', 'split-flap' ),
