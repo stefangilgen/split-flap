@@ -396,6 +396,13 @@ function split_flap_sanitize_board_args( $args ) {
 	$textfarbe    = split_flap_sanitize_color( isset( $args['textfarbe'] ) ? $args['textfarbe'] : '', '#C8C8C8' );
 	$klappenfarbe = split_flap_sanitize_color( isset( $args['klappenfarbe'] ) ? $args['klappenfarbe'] : '', '#1A1A1A' );
 
+	// Block-Ausrichtung (Gutenberg-align). Nur erlaubte Werte; alles andere = keine
+	// Ausrichtung. Die align-Klasse muss bei render_callback-Blöcken aktiv auf den
+	// Container gesetzt werden, sonst greift das align-CSS im Frontend nicht.
+	$align        = isset( $args['align'] ) && is_string( $args['align'] ) ? $args['align'] : '';
+	$align_erlaubt = array( 'left', 'center', 'right', 'wide', 'full' );
+	$align        = in_array( $align, $align_erlaubt, true ) ? $align : '';
+
 	return array(
 		'szenen'       => $szenen,
 		'zeilen'       => $zeilen,
@@ -407,6 +414,7 @@ function split_flap_sanitize_board_args( $args ) {
 		'textfarbe'    => $textfarbe,
 		'klappenfarbe' => $klappenfarbe,
 		'schrift'      => $schrift,
+		'align'        => $align,
 	);
 }
 
@@ -437,6 +445,12 @@ function split_flap_render_board( $args ) {
 
 	$schrift_class = 'theme' === $o['schrift'] ? 'split-flap--font-theme' : 'split-flap--font-mono';
 
+	// align-Klasse für den Container. Gutenberg benennt sie «align» + Wert
+	// (alignwide, alignfull, aligncenter …). Bei render_callback-Blöcken hängt
+	// WordPress sie nicht automatisch an – wir setzen sie selbst, damit das
+	// align-CSS (.split-flap.alignfull usw.) im Frontend greift.
+	$align_class = '' !== $o['align'] ? ' align' . $o['align'] : '';
+
 	// Custom Properties für Farben und Tempo. Farbflaps liegen als --sf-color-N vor.
 	// --sf-stellen speist die Container-Query-Breite (Klappen passen in den Container).
 	$style = sprintf(
@@ -457,7 +471,7 @@ function split_flap_render_board( $args ) {
 
 	$sr_text = split_flap_scene_to_text( $erste );
 
-	$out  = '<div class="split-flap split-flap--board ' . esc_attr( $schrift_class ) . '"';
+	$out  = '<div class="split-flap split-flap--board ' . esc_attr( $schrift_class ) . esc_attr( $align_class ) . '"';
 	$out .= ' style="' . esc_attr( $style ) . '"';
 	$out .= ' data-sf-charset="' . esc_attr( $charset ) . '"';
 	$out .= ' data-sf-intervall="' . esc_attr( (int) $o['intervall'] ) . '"';
@@ -601,6 +615,7 @@ function split_flap_render( $args ) {
 		'textfarbe'    => isset( $args['textfarbe'] ) ? $args['textfarbe'] : $defaults['textfarbe'],
 		'klappenfarbe' => isset( $args['klappenfarbe'] ) ? $args['klappenfarbe'] : $defaults['klappenfarbe'],
 		'schrift'      => isset( $args['schrift'] ) ? $args['schrift'] : $defaults['schrift'],
+		'align'        => isset( $args['align'] ) ? $args['align'] : '',
 	);
 
 	return split_flap_render_board( $board_args );

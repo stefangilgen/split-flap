@@ -46,6 +46,18 @@ Beim Board legt die Redaktorin im Panel *Szenen* einen oder mehrere Szenen-Texte
 
 Ist eine Zeile länger als die Stellenzahl oder hat eine Szene mehr Zeilen als das Board, kürzt der Block und blendet im Editor einen Hinweis ein.
 
+### Ausrichtung «breit» und «voll»
+
+Beide Blöcke kennen die Gutenberg-Ausrichtungen «breit» und «volle Breite» (Buttons in der Block-Toolbar). Sie heben die Obergrenze der Klappengrösse an, sodass die Tafel den verfügbaren Raum nutzt:
+
+| Ausrichtung | Obergrenze pro Klappe |
+|---|---|
+| Standard (keine, links, zentriert, rechts) | 2.1rem |
+| Breit (`alignwide`) | 3.2rem |
+| Voll (`alignfull`) | 4.6rem |
+
+Die Höhe folgt automatisch proportional aus der Breite (Höhe = Breite × 1.5), die Schrift bleibt an die Höhe gekoppelt. Klappen, Höhe und Schrift wachsen also im selben Verhältnis – das Seitenverhältnis bleibt unverändert, nichts wird gestaucht oder abgeschnitten. Wachsen die Klappen über den Containerraum hinaus, greift die Obergrenze: Die Tafel zentriert sich dann mit Rand, statt sich über die ganze Breite zu dehnen. Wenige Stellen auf voller Breite ergeben so keine riesigen, gedehnten Klappen, sondern eine zentrierte Tafel. Auf schmalen Viewports bleiben die Klappen unter der Obergrenze – die Container Query hält sie ohne horizontalen Überlauf im Container.
+
 ## Nutzung als Shortcode
 
 Einzeilig (v1):
@@ -137,6 +149,11 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion ausser dem Ton-Toggle, globale Settings-Seite, theme-übergreifendes Skin-System, Persistenz des Ton-Zustands über Seitenbesuche hinaus. Alle Optionen leben am Block beziehungsweise im Shortcode.
 
 ## Changelog
+
+### 0.3.0
+
+- Ausrichtung «breit» (`alignwide`) und «volle Breite» (`alignfull`) für beide Blöcke. Die Buttons stehen in der Block-Toolbar; je Ausrichtung steigt die Obergrenze der Klappengrösse (2.1rem Standard, 3.2rem breit, 4.6rem voll). Höhe und Schrift folgen proportional aus der Breite (Verhältnis Höhe = Breite × 1.5 unverändert) – die Klappen wachsen mit, ohne Stauchung oder Verzerrung. Bestehende Tafeln ohne Ausrichtung bleiben optisch identisch.
+- Die align-Klasse landet im Frontend aktiv auf dem `.split-flap`-Container. Bei `render_callback`-Blöcken hängt WordPress sie nicht automatisch an; der Render-Callback setzt sie nun selbst aus dem Block-Attribut. So greift das Ausrichtungs-CSS auch im Frontend, nicht nur im Editor.
 
 ### 0.2.2
 

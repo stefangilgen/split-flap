@@ -29,11 +29,15 @@
 	 * ergibt sich aus dem verfügbaren Containerraum (cqw) geteilt durch die Zahl
 	 * der Stellen, abzüglich Gaps. So passen alle Stellen ohne Scrollbar in den
 	 * Container – egal wie breit das Theme den Inhalt rendert (Container Query).
-	 * Eine harte Obergrenze (2.1rem) verhindert riesige Klappen bei wenig Stellen,
-	 * eine Untergrenze hält sie auf Mobile lesbar. */
+	 * Eine harte Obergrenze (--sf-cell-max, Standard 2.1rem) verhindert riesige
+	 * Klappen bei wenig Stellen, eine Untergrenze hält sie auf Mobile lesbar.
+	 * Die Obergrenze hängt an der Block-Ausrichtung: «breit» und «voll» heben sie
+	 * an (siehe .alignwide / .alignfull weiter unten). So wachsen Klappen, Höhe und
+	 * Schrift proportional mit – die Mechanik bleibt unverändert. */
+	--sf-cell-max: 2.1rem;
 	--sf-gap: clamp(1px, 0.3cqw, 4px);
 	--sf-cell-w: min(
-		2.1rem,
+		var(--sf-cell-max),
 		max( 0.62rem, calc( (100cqw - (var(--sf-stellen) - 1) * var(--sf-gap)) / var(--sf-stellen) ) )
 	);
 	--sf-cell-h: calc(var(--sf-cell-w) * 1.5);
@@ -104,6 +108,18 @@
 .alignright .split-flap__row,
 .split-flap.alignright .split-flap__row {
 	justify-content: flex-end;
+}
+
+/* Ausrichtung «breit» und «voll»: nur die Obergrenze der Klappengrösse steigt.
+ * Höhe (Breite × 1.5) und Schrift folgen automatisch – das Seitenverhältnis
+ * bleibt unverändert. Bei wenigen Stellen begrenzt --sf-cell-max die Klappen,
+ * dann zentriert die Tafel mit Rand (kein Dehnen über die volle Breite). */
+.split-flap.alignwide {
+	--sf-cell-max: 3.2rem;
+}
+
+.split-flap.alignfull {
+	--sf-cell-max: 4.6rem;
 }
 
 /* Eine Klappe. Die 3D-Perspektive sitzt auf der Zelle. */
