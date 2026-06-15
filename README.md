@@ -150,6 +150,11 @@ Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, API
 
 ## Changelog
 
+### 0.3.1
+
+- Ausrichtung «volle Breite» (`alignfull`) erzwingt jetzt echte Vollbreite über den ganzen Viewport – theme-unabhängig. Themes wie Twenty-Twenty-Five setzen `alignfull` nur über negative Margins bis zur Container-Breite um; die Tafel blieb dann asymmetrisch und nahm nicht die volle Breite ein. Der dunkle Tafelrahmen spannt sich nun zuverlässig über die ganze sichtbare Breite. Der Klappen-Inhalt bleibt mittig mit Rand (Obergrenze 4.6rem unverändert).
+- Scrollbar-sicher gelöst: Ein kleines Frontend-Skript misst die echte Innenbreite (`document.documentElement.clientWidth`, ohne vertikale Scrollbar) und legt sie als CSS-Variable `--sf-vw` ab. So entsteht kein horizontaler Überlauf – im Gegensatz zu reinem `100vw`, das die Scrollbar-Breite mitzählt. Auf Mobile (360 px, 390 px) bleibt das Board ohne horizontalen Scroll. Das Skript läuft nur, wenn eine `alignfull`-Tafel vorhanden ist, und entprellt Resize-Ereignisse.
+
 ### 0.3.0
 
 - Ausrichtung «breit» (`alignwide`) und «volle Breite» (`alignfull`) für beide Blöcke. Die Buttons stehen in der Block-Toolbar; je Ausrichtung steigt die Obergrenze der Klappengrösse (2.1rem Standard, 3.2rem breit, 4.6rem voll). Höhe und Schrift folgen proportional aus der Breite (Verhältnis Höhe = Breite × 1.5 unverändert) – die Klappen wachsen mit, ohne Stauchung oder Verzerrung. Bestehende Tafeln ohne Ausrichtung bleiben optisch identisch.

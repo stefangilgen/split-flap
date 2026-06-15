@@ -29,6 +29,56 @@
 	var REST_MS = 800;
 
 	/* ------------------------------------------------------------------ *
+	 * Full-Bleed: echte Viewport-Breite für .alignfull, scrollbar-sicher.
+	 *
+	 * Das CSS spannt .split-flap.alignfull auf var(--sf-vw, 100vw). Reine CSS-
+	 * 100vw schliesst die vertikale Scrollbar mit ein und erzeugt damit auf
+	 * Desktops mit klassischer Scrollbar einen horizontalen Überlauf. Hier
+	 * messen wir document.documentElement.clientWidth – das ist die Innenbreite
+	 * OHNE Scrollbar – und legen sie als globale Variable --sf-vw ab. Damit ist
+	 * die Tafel exakt so breit wie der sichtbare Bereich, nie breiter.
+	 *
+	 * Läuft nur, wenn überhaupt ein alignfull-Board existiert. Resize-Updates
+	 * sind per requestAnimationFrame entprellt.
+	 * ------------------------------------------------------------------ */
+	var FullBleed = ( function () {
+		var active = false;
+		var rafId = 0;
+
+		function apply() {
+			rafId = 0;
+			var w = document.documentElement.clientWidth;
+			if ( w > 0 ) {
+				document.documentElement.style.setProperty( '--sf-vw', w + 'px' );
+			}
+		}
+
+		function schedule() {
+			if ( rafId ) {
+				return;
+			}
+			rafId = window.requestAnimationFrame
+				? window.requestAnimationFrame( apply )
+				: window.setTimeout( apply, 16 );
+		}
+
+		function init() {
+			if ( active ) {
+				return;
+			}
+			if ( ! document.querySelector( '.split-flap.alignfull:not(.split-flap--editor)' ) ) {
+				return;
+			}
+			active = true;
+			apply();
+			window.addEventListener( 'resize', schedule );
+			window.addEventListener( 'orientationchange', schedule );
+		}
+
+		return { init: init };
+	} )();
+
+	/* ------------------------------------------------------------------ *
 	 * Sound: gemeinsamer AudioContext, erst nach Nutzergeste entsperrt.
 	 * ------------------------------------------------------------------ */
 	var Sound = ( function () {
@@ -678,6 +728,9 @@
 		if ( ! boards.length ) {
 			return;
 		}
+
+		// Echte Vollbreite für alignfull-Tafeln setzen (scrollbar-sicher).
+		FullBleed.init();
 
 		var controllers = [];
 		boards.forEach( function ( board ) {

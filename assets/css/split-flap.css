@@ -120,6 +120,23 @@
 
 .split-flap.alignfull {
 	--sf-cell-max: 4.6rem;
+
+	/* Echtes Full-Bleed, theme-unabhängig: Der dunkle Tafelrahmen spannt sich
+	 * über die volle Viewport-Breite, egal wie schmal das Theme den Inhalts-
+	 * container hält. Twenty-Twenty-Five etwa setzt alignfull nur über negative
+	 * Margins bis zur Container-Breite um – das reicht nicht. Hier zwingen wir
+	 * echte Vollbreite.
+	 *
+	 * Fallstrick: 100vw schliesst die Breite der vertikalen Scrollbar mit ein
+	 * und erzeugt dann horizontalen Überlauf. Deshalb misst split-flap.js die
+	 * echte Innenbreite (document.documentElement.clientWidth, ohne Scrollbar)
+	 * und legt sie in --sf-vw ab. Solange JS noch nicht gelaufen ist, greift
+	 * 100vw als Fallback – mit dem Theme-Margin als zweitem Fallback, falls die
+	 * Variable fehlt. Sobald JS gesetzt hat, ist --sf-vw scrollbar-sicher. */
+	width: var( --sf-vw, 100vw );
+	max-width: var( --sf-vw, 100vw );
+	margin-left: calc( 50% - var( --sf-vw, 100vw ) / 2 );
+	margin-right: calc( 50% - var( --sf-vw, 100vw ) / 2 );
 }
 
 /* Eine Klappe. Die 3D-Perspektive sitzt auf der Zelle. */
