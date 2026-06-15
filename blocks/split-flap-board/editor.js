@@ -10,6 +10,7 @@
 
 	var el = wp.element.createElement;
 	var Fragment = wp.element.Fragment;
+	var useState = wp.element.useState;
 	var __ = wp.i18n.__;
 	var registerBlockType = wp.blocks.registerBlockType;
 	var useBlockProps = wp.blockEditor.useBlockProps;
@@ -124,6 +125,21 @@
 				: [ '' ];
 			var farben = Array.isArray( attributes.farben ) ? attributes.farben : [];
 
+			// Welche Szene zeigt die Editor-Vorschau? Rein lokaler Ansichtszustand,
+			// wird nicht gespeichert. Erlaubt das Umschalten der Vorschau zwischen Szenen.
+			var vorschauState = useState( 0 );
+			var vorschauSzene = vorschauState[ 0 ];
+			var setVorschauSzene = vorschauState[ 1 ];
+
+			// Index gegen die aktuelle Szenenzahl klemmen (nach Entfernen einer Szene).
+			var aktiveVorschau = vorschauSzene;
+			if ( aktiveVorschau > szenen.length - 1 ) {
+				aktiveVorschau = szenen.length - 1;
+			}
+			if ( aktiveVorschau < 0 ) {
+				aktiveVorschau = 0;
+			}
+
 			/**
 			 * Liefert die effektive Farbe eines Index (eigene oder Default).
 			 *
@@ -136,8 +152,8 @@
 					: DEFAULT_PALETTE[ idx ];
 			}
 
-			// Vorschau: erste Szene statisch.
-			var built = buildScene( szenen[ 0 ] || '', attributes.zeilen, attributes.stellen, attributes.grossschrift );
+			// Vorschau: gewählte Szene statisch (Default Szene 1).
+			var built = buildScene( szenen[ aktiveVorschau ] || '', attributes.zeilen, attributes.stellen, attributes.grossschrift );
 
 			var fontClass = 'theme' === attributes.schrift ? 'split-flap--font-theme' : 'split-flap--font-mono';
 
@@ -204,45 +220,78 @@
 				notices.push( el(
 					Notice,
 					{ key: 'rows', status: 'warning', isDismissible: false },
-					__( 'Die erste Szene hat mehr Zeilen als das Board und wird gekürzt.', 'split-flap' )
+					__( 'Diese Szene hat mehr Zeilen als das Board und wird gekürzt.', 'split-flap' )
 				) );
 			}
 
-			// Szenen-Editoren.
-			var sceneControls = szenen.map( function ( text, idx ) {
-				return el(
-					'div',
-					{ key: idx, className: 'split-flap-scene-editor', style: { marginBottom: '12px' } },
-					el( TextareaControl, {
-						label: __( 'Szene', 'split-flap' ) + ' ' + ( idx + 1 ),
-						value: text,
-						rows: attributes.zeilen,
-						onChange: function ( value ) {
-							var next = szenen.slice();
-							next[ idx ] = value;
-							setAttributes( { szenen: next } );
+			// Szenen-Umschalter: zeigt je Szene einen Knopf; der aktive Knopf bestimmt,
+			// welche Szene die Vorschau zeigt und welche im Textfeld editiert wird.
+			var sceneSwitcher = szenen.length > 1
+				? el(
+						'div',
+						{
+							key: 'switcher',
+							className: 'split-flap-scene-switcher',
+							style: { display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '10px' }
 						},
-						help: 0 === idx
-							? __( 'Eine Eingabezeile = eine Board-Zeile. Farbflap mit {1} bis {15}.', 'split-flap' )
-							: undefined
-					} ),
-					szenen.length > 1
-						? el(
+						szenen.map( function ( ignored, idx ) {
+							return el(
 								Button,
 								{
-									isDestructive: true,
-									variant: 'secondary',
+									key: idx,
+									variant: idx === aktiveVorschau ? 'primary' : 'secondary',
+									isPressed: idx === aktiveVorschau,
 									onClick: function () {
-										var next = szenen.slice();
-										next.splice( idx, 1 );
-										setAttributes( { szenen: next.length ? next : [ '' ] } );
+										setVorschauSzene( idx );
 									}
 								},
-								__( 'Szene entfernen', 'split-flap' )
-						  )
-						: null
-				);
-			} );
+								__( 'Szene', 'split-flap' ) + ' ' + ( idx + 1 )
+							);
+						} )
+				  )
+				: null;
+
+			// Nur die aktive Szene wird editiert (zur Vorschau passend). So sieht die
+			// Redaktorin beim Tippen unmittelbar das Ergebnis im Board.
+			var aktiverText = szenen[ aktiveVorschau ] || '';
+			var sceneEditor = el(
+				'div',
+				{ key: 'editor', className: 'split-flap-scene-editor', style: { marginBottom: '12px' } },
+				el( TextareaControl, {
+					label: __( 'Szene', 'split-flap' ) + ' ' + ( aktiveVorschau + 1 ),
+					value: aktiverText,
+					rows: attributes.zeilen,
+					onChange: function ( value ) {
+						var next = szenen.slice();
+						next[ aktiveVorschau ] = value;
+						setAttributes( { szenen: next } );
+					},
+					help: __( 'Eine Eingabezeile = eine Board-Zeile. Farbflap mit {1} bis {15}.', 'split-flap' )
+				} ),
+				szenen.length > 1
+					? el(
+							Button,
+							{
+								isDestructive: true,
+								variant: 'secondary',
+								onClick: function () {
+									var next = szenen.slice();
+									next.splice( aktiveVorschau, 1 );
+									if ( ! next.length ) {
+										next = [ '' ];
+									}
+									// Vorschau auf eine gültige Szene zurückziehen.
+									var neuerIndex = aktiveVorschau > next.length - 1 ? next.length - 1 : aktiveVorschau;
+									setVorschauSzene( neuerIndex );
+									setAttributes( { szenen: next } );
+								}
+							},
+							__( 'Szene entfernen', 'split-flap' )
+					  )
+					: null
+			);
+
+			var sceneControls = [ sceneSwitcher, sceneEditor ];
 
 			var inspector = el(
 				InspectorControls,
@@ -254,9 +303,12 @@
 					el(
 						Button,
 						{
-							variant: 'primary',
+							variant: 'secondary',
 							onClick: function () {
-								setAttributes( { szenen: szenen.concat( [ '' ] ) } );
+								var next = szenen.concat( [ '' ] );
+								// Vorschau direkt auf die neue, leere Szene umschalten.
+								setVorschauSzene( next.length - 1 );
+								setAttributes( { szenen: next } );
 							}
 						},
 						__( 'Szene hinzufügen', 'split-flap' )

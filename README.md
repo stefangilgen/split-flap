@@ -14,6 +14,8 @@ Ab Version 0.2.0 gibt es zwei Anzeigen: die einzeilige Tafel aus v1 und ein mehr
 
 Das Board ist eine Abfahrtstafel mit fester Zeilen- und Stellenzahl, Default **6 Zeilen × 25 Stellen** (150 Klappen). Es hält eine oder mehrere **Szenen**; bei mehr als einer Szene wechselt es automatisch in einem Intervall durch und rattert dabei nur die geänderten Stellen. Jeder Wechsel kann von einem Klappersound begleitet werden, der erst nach einer Nutzergeste am Ton-Toggle klingt.
 
+Das eingestellte Intervall ist eine Untergrenze, kein starrer Takt. Die Engine startet den nächsten Wechsel erst, wenn der vorige vollständig abgeschlossen ist und das Board kurz geruht hat. Das **effektive Intervall** ist deshalb `max(eingestelltes Intervall, längste Animationsdauer + Ruhepuffer)`. So kollidiert ein Wechsel nie mit einer noch laufenden Animation – auch bei Intervall 2 s und 150 geänderten Stellen zeigt das Board zwischen den Wechseln immer ein klares, scharfes Bild.
+
 ### Farbflaps
 
 Im Text setzt die Syntax `{1}` bis `{15}` einen farbigen Block. Jede Markierung belegt genau eine Stelle. `{0}`, `{16}` und höher, `{}` oder Unfug wie `{ab}` werden zur Leer-Klappe – kein Fehler. Die 15 Farben sind pro Board frei wählbar (15 Color-Picker im Block, Attribut `farben` im Shortcode); fehlt oder stimmt eine Farbe nicht, greift die Default-Palette.
@@ -40,7 +42,7 @@ Es gibt zwei Blöcke (Kategorie *Medien*):
 - **Split-Flap** – die einzeilige Tafel aus v1.
 - **Split-Flap-Board** – das mehrzeilige Board mit Szenen, Farbflaps und Sound.
 
-Beim Board legt die Redaktorin im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation und Sound* das Loop-Intervall, Tempo und die Schrift, im Panel *Farbflaps* die 15 Farben. Die Vorschau zeigt die erste Szene statisch. Flip-Animation, Loop und Sound laufen erst im Frontend.
+Beim Board legt die Redaktorin im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation und Sound* das Loop-Intervall, Tempo und die Schrift, im Panel *Farbflaps* die 15 Farben. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation, Loop und Sound laufen erst im Frontend.
 
 Ist eine Zeile länger als die Stellenzahl oder hat eine Szene mehr Zeilen als das Board, kürzt der Block und blendet im Editor einen Hinweis ein.
 
@@ -135,6 +137,12 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion ausser dem Ton-Toggle, globale Settings-Seite, theme-übergreifendes Skin-System, Persistenz des Ton-Zustands über Seitenbesuche hinaus. Alle Optionen leben am Block beziehungsweise im Shortcode.
 
 ## Changelog
+
+### 0.2.2
+
+- Robuster Szenen-Loop: Der nächste Wechsel startet erst, wenn der vorige vollständig abgeschlossen ist und das Board mindestens 800 ms geruht hat. Das effektive Intervall ist `max(eingestelltes Intervall, längste Animationsdauer + Ruhepuffer)`. Damit kollidiert kein Wechsel mehr mit einer laufenden Animation; zwischen den Wechseln gibt es immer ein messbares Ruhefenster, in dem das Board scharf steht. Gemessen bei Intervall 2 s mit zwei stark unterschiedlichen Szenen (99 umklappende Stellen je Wechsel): Ruhefenster rund 900 ms, keine Akkumulation laufender Animationen.
+- Block-Editor produktionsreif: Bei mehreren Szenen schaltet eine Knopfreihe *Szene 1*, *Szene 2* … Vorschau und Textfeld gemeinsam auf die gewählte Szene um. Die Vorschau aktualisiert sich beim Tippen live. Alle Controls (Szenen anlegen/entfernen/umschalten, Zeilen, Stellen, Tempo, Intervall, Grossschreibung, Schrift, 15 Farb-Picker) ohne Konsolenfehler bedienbar; Speichern und erneutes Öffnen erhält alle Werte.
+- Übersetzungsvorlage `languages/split-flap.pot` um alle v2-Strings ergänzt (Board-Editor-Labels, Panel-Titel, Hinweistexte, Ton-Toggle-Labels).
 
 ### 0.2.1
 

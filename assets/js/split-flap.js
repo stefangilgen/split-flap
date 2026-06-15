@@ -20,6 +20,14 @@
 
 	var ALPHA_SEQUENCE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 
+	// Höchstzahl Zwischenschritte pro Klappe. Deterministische Obergrenze, damit
+	// die längste mögliche Animationsdauer im Voraus berechenbar ist (Aufgabe 1).
+	var MAX_STEPS = 7;
+
+	// Ruhepuffer nach Abschluss eines Wechsels, bevor der nächste starten darf.
+	// Das garantiert ein sichtbares, scharfes Board zwischen den Wechseln.
+	var REST_MS = 800;
+
 	/* ------------------------------------------------------------------ *
 	 * Sound: gemeinsamer AudioContext, erst nach Nutzergeste entsperrt.
 	 * ------------------------------------------------------------------ */
@@ -326,8 +334,9 @@
 		var targetGlyph = glyphOf( target );
 		var targetIsColor = isColorToken( target );
 
-		// Ein paar Zwischenschritte bis zum Ziel.
-		var steps = 3 + Math.floor( Math.random() * 5 );
+		// Ein paar Zwischenschritte bis zum Ziel. Obergrenze MAX_STEPS, damit die
+		// Dauer planbar bleibt (der Controller rechnet mit dem Worst Case).
+		var steps = 3 + Math.floor( Math.random() * ( MAX_STEPS - 2 ) );
 		var step = 0;
 
 		function doFlip() {
@@ -423,6 +432,8 @@
 		var loopTimer = null;
 		var soundOn = false;
 		var started = false;
+		// Dauer des Erstaufbaus; dient als Ruhebasis für den ersten geplanten Wechsel.
+		var firstBuildDurationMs = 0;
 
 		/**
 		 * Flacht eine Szene (Zeilen → Stellen) in eine flache Token-Liste ab,
@@ -442,11 +453,31 @@
 		}
 
 		/**
+		 * Berechnet die längste mögliche Animationsdauer eines Wechsels in ms.
+		 *
+		 * Die letzte umklappende Klappe startet nach «changed * stagger» und braucht
+		 * dann im Worst Case (MAX_STEPS + 1) volle Flip-Phasen. Daraus ergibt sich
+		 * die deterministische Obergrenze der Wechseldauer.
+		 *
+		 * @param {number} changed Zahl umklappender Stellen.
+		 * @return {number} Längste Animationsdauer in ms (0 bei keinem Wechsel).
+		 */
+		function changeDurationMs( changed ) {
+			if ( changed <= 0 ) {
+				return 0;
+			}
+			var stagger = Math.max( 18, flipMs * 0.6 );
+			// Letzte Klappe startet bei (changed - 1) * stagger; danach MAX_STEPS
+			// Zwischenschritte plus ein Abschluss-Schritt, jeweils flipMs.
+			return ( changed - 1 ) * stagger + ( MAX_STEPS + 1 ) * flipMs;
+		}
+
+		/**
 		 * Wechselt animiert zur Szene mit gegebenem Index. Nur geänderte Stellen
 		 * klappen. Feuert «splitflap:flip» mit der Zahl umklappender Stellen.
 		 *
 		 * @param {number} idx Ziel-Szenenindex.
-		 * @return {void}
+		 * @return {number} Längste Animationsdauer dieses Wechsels in ms.
 		 */
 		function goToScene( idx ) {
 			var target = flattenScene( scenes[ idx ] );
@@ -461,7 +492,7 @@
 				}
 				changed++;
 				( function ( cell, token, order ) {
-					animateCell( cell, config, token, order * stagger, function () {
+					animateCell( cell, config, token, ( order - 1 ) * stagger, function () {
 						// Sound hängt am Custom-Event, nicht direkt hier.
 					} );
 				} )( cells[ i ], to, changed );
@@ -474,6 +505,8 @@
 			board.dispatchEvent( new CustomEvent( 'splitflap:flip', {
 				detail: { changed: changed, sceneIndex: idx }
 			} ) );
+
+			return changeDurationMs( changed );
 		}
 
 		/**
@@ -495,11 +528,16 @@
 				}
 				changed++;
 				( function ( cell, token, order ) {
-					animateCell( cell, config, token, order * stagger, null );
+					animateCell( cell, config, token, ( order - 1 ) * stagger, null );
 				} )( cells[ i ], to, changed );
 			}
 
 			currentTokens = target;
+
+			// Dauer des Erstaufbaus merken (gleiche Worst-Case-Formel, eigener Stagger).
+			firstBuildDurationMs = changed > 0
+				? ( changed - 1 ) * stagger + ( MAX_STEPS + 1 ) * flipMs
+				: 0;
 
 			board.dispatchEvent( new CustomEvent( 'splitflap:flip', {
 				detail: { changed: changed, sceneIndex: 0 }
@@ -522,16 +560,40 @@
 		/**
 		 * Startet den Szenen-Loop (nur bei mehr als einer Szene).
 		 *
+		 * Anders als ein starres setInterval plant dieser Loop den nächsten Wechsel
+		 * erst, wenn der vorige Wechsel vollständig abgeschlossen ist und das Board
+		 * mindestens REST_MS geruht hat. Das effektive Intervall ist deshalb
+		 *   max( eingestelltesIntervall, längsteAnimationsdauer + REST_MS ).
+		 * So kollidiert kein Wechsel mehr mit einer laufenden Animation und zwischen
+		 * den Wechseln gibt es immer ein klares, ruhiges Board – auch bei Intervall 2 s
+		 * mit vielen geänderten Stellen.
+		 *
 		 * @return {void}
 		 */
 		function startLoop() {
 			if ( scenes.length < 2 || loopTimer || REDUCED ) {
 				return;
 			}
-			loopTimer = window.setInterval( function () {
-				var next = ( sceneIndex + 1 ) % scenes.length;
-				goToScene( next );
-			}, intervalSec * 1000 );
+
+			// Vom Abschluss eines Wechsels (jetzt) bis zum Start des nächsten.
+			function scheduleNext( lastDurationMs ) {
+				var baseInterval = intervalSec * 1000;
+				// Effektives Intervall: nie kürzer als Animationsdauer + Ruhepuffer.
+				var effective = Math.max( baseInterval, ( lastDurationMs || 0 ) + REST_MS );
+
+				loopTimer = window.setTimeout( function () {
+					loopTimer = null;
+					var next = ( sceneIndex + 1 ) % scenes.length;
+					var dur = goToScene( next );
+					// Nächsten Wechsel erst nach Abschluss + Ruhe planen.
+					scheduleNext( dur );
+				}, effective );
+			}
+
+			// Der erste geplante Wechsel rechnet noch ohne vorige Dauer; der
+			// Erstaufbau (buildFirstScene) ist zu diesem Zeitpunkt bereits am Laufen,
+			// deshalb beziehen wir dessen Dauer als Ruhebasis ein.
+			scheduleNext( firstBuildDurationMs );
 		}
 
 		/**
@@ -541,7 +603,7 @@
 		 */
 		function stopLoop() {
 			if ( loopTimer ) {
-				window.clearInterval( loopTimer );
+				window.clearTimeout( loopTimer );
 				loopTimer = null;
 			}
 		}
