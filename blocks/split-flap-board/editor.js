@@ -185,7 +185,8 @@
 								className: 'split-flap__cell split-flap__cell--color',
 								style: { background: 'var(--sf-color-' + stelle.value + ')' }
 							},
-							el( 'span', { className: 'split-flap__char' }, '' )
+							el( 'span', { className: 'split-flap__char' }, '' ),
+							el( 'span', { className: 'split-flap__seam' } )
 						);
 					}
 					var isSpace = ' ' === stelle.value || '' === stelle.value;
@@ -195,7 +196,8 @@
 							key: ci2,
 							className: 'split-flap__cell' + ( isSpace ? ' split-flap__cell--space' : '' )
 						},
-						el( 'span', { className: 'split-flap__char' }, isSpace ? '' : stelle.value )
+						el( 'span', { className: 'split-flap__char' }, isSpace ? '' : stelle.value ),
+						el( 'span', { className: 'split-flap__seam' } )
 					);
 				} );
 				return el( 'div', { key: ri, className: 'split-flap__row' }, cells );

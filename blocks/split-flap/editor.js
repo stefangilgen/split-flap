@@ -85,7 +85,8 @@
 						key: i,
 						className: 'split-flap__cell' + ( isSpace ? ' split-flap__cell--space' : '' )
 					},
-					el( 'span', { className: 'split-flap__char' }, isSpace ? '' : ch )
+					el( 'span', { className: 'split-flap__char' }, isSpace ? '' : ch ),
+					el( 'span', { className: 'split-flap__seam' } )
 				);
 			} );
 

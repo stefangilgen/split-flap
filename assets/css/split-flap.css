@@ -193,9 +193,9 @@
 }
 
 /* Das aktuell sichtbare Zeichen (Endzustand und statische Vorschau).
- * Der Mittelspalt liegt nicht mehr hinter der Glyphe (dort war er verdeckt),
- * sondern getrennt: als volle Klappen-Naht auf der Zelle (siehe unten) und
- * bei Buchstaben zusätzlich durch die Glyphe selbst (background-clip: text). */
+ * Der Mittelspalt liegt als eigener 1-px-Überlagerungsstrich (.split-flap__seam)
+ * über der Glyphe – nicht dahinter und nicht in die Glyphe geklippt. So bleibt
+ * die Naht in jedem Zustand sichtbar, auch während des Umklappens. */
 .split-flap__char {
 	position: absolute;
 	inset: 0;
@@ -227,57 +227,48 @@
 	color: transparent;
 }
 
+/* Ruhezustand-Naht der Farbflaps (von Stefan bereits abgenommen). Bleibt
+ * unverändert bestehen; der permanente .split-flap__seam-Strich liegt zusätzlich
+ * oben drauf und hält die Naht auch während der Animation sichtbar. */
 .split-flap__cell--color .split-flap__char {
 	background:
 		linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0, 0, 0, 0.35) 50%, transparent calc(50% + 1px));
 }
 
 /* ----------------------------------------------------------------------
- * Mittelspalt und optische Zentrierung der Buchstaben-Glyphe.
+ * Mittelspalt (Naht) und optische Zentrierung der Buchstaben-Glyphe.
  * -------------------------------------------------------------------- */
 
-/* Volle Klappen-Naht auf der Zellfläche (Buchstaben- und Leerklappen).
- * Farbflaps tragen ihre Naht über die eigene Char-Regel oben; ihr Inline-
- * Hintergrund (background:var(--sf-color-N)) überschreibt dieses Bild ohnehin.
- * Die Naht sitzt exakt auf 50 % – deckungsgleich mit der physischen Trennlinie
- * der Flip-Hälften (border unten der oberen Hälfte) und mit der Glyphen-Naht. */
-.split-flap__cell:not(.split-flap__cell--color) {
-	background-image:
-		linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0, 0, 0, 0.6) 50%, transparent calc(50% + 1px));
+/* Die Naht ist ein eigener, rein dekorativer Überlagerungsstrich pro Klappe
+ * (.split-flap__seam), unabhängig vom Animationszustand. Er liegt permanent auf
+ * exakt 50 % Höhe, ist genau 1 px dick, ohne Schatten und ohne weichen Verlauf.
+ * Weil er über der Glyphe UND über den Flip-Hälften liegt (z-index 4), bleibt der
+ * Mittelspalt in jedem Zustand sichtbar: in Ruhe, im Einzelschritt, im mehrstufigen
+ * Durchrattern und im Synchron-Modus. Frühere Ansätze (Naht als Zell-Hintergrund
+ * oder per background-clip durch die Glyphe) verschwanden, sobald .split-flap__char
+ * während is-flipping ausgeblendet wurde – dieser Strich nicht.
+ *
+ * Deckkraft 0.5: fein genug, dass er Buchstaben-Details nahe der Mittellinie (z. B.
+ * den Mittelbalken beim E oder H) nicht verschluckt, aber klar als mechanischer
+ * Spalt lesbar. */
+.split-flap__seam {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 50%;
+	height: 1px;
+	transform: translateY(-0.5px);
+	background: rgba(0, 0, 0, 0.5);
+	z-index: 4;
+	pointer-events: none;
 }
 
-/* Buchstaben-Glyphe: zwei Korrekturen in einer Regel.
- *  1. Optische Zentrierung: die Glyphe um --sf-ink-nudge nach unten schieben,
- *     damit die sichtbare Tinte (nicht die Font-Linienbox) mittig zur Klappe
- *     steht. Wirkt nur auf die Glyphe, nicht auf die Zellnaht darüber.
- *  2. Naht durch die Glyphe: der Verlauf wird per background-clip: text DURCH
- *     die Glyphe gemalt (nicht dahinter), sodass der Buchstabe am Mittelspalt
- *     unterbrochen wirkt – wie die Farbflaps. Die dunkle Naht liegt bei
- *     calc(50% - --sf-ink-nudge); nach der Verschiebung um +--sf-ink-nudge
- *     landet sie exakt auf 50 % der Klappe, deckungsgleich mit der Zellnaht. */
+/* Buchstaben-Glyphe: nur die optische Vertikal-Zentrierung. Die Glyphe um
+ * --sf-ink-nudge nach unten schieben, damit die sichtbare Tinte (nicht die
+ * Font-Linienbox) mittig zur Klappe steht. Die Naht selbst kommt ausschliesslich
+ * aus .split-flap__seam und läuft als 1-px-Strich über die Glyphe. */
 .split-flap__cell:not(.split-flap__cell--color) .split-flap__char {
 	transform: translateY(var(--sf-ink-nudge));
-	color: transparent;
-	-webkit-background-clip: text;
-	background-clip: text;
-	background-image: linear-gradient(
-		to bottom,
-		var(--sf-text) 0%,
-		var(--sf-text) calc(50% - var(--sf-ink-nudge) - 0.05em),
-		rgba(0, 0, 0, 0.55) calc(50% - var(--sf-ink-nudge)),
-		var(--sf-text) calc(50% - var(--sf-ink-nudge) + 0.05em),
-		var(--sf-text) 100%
-	);
-}
-
-/* Fallback für Browser ohne background-clip: text (sehr selten). Dort erscheint
- * die Glyphe schlicht in der Textfarbe ohne Naht – lieber keine Naht als eine
- * unsichtbare (transparente) Glyphe. Die optische Zentrierung bleibt erhalten. */
-@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
-	.split-flap__cell:not(.split-flap__cell--color) .split-flap__char {
-		color: var(--sf-text);
-		background-image: none;
-	}
 }
 
 /* Screenreader-Text: visuell versteckt, aber vorlesbar. */

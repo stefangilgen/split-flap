@@ -593,6 +593,9 @@ function split_flap_render_cell( $stelle ) {
 		$out .= ' data-sf-target="c' . esc_attr( (string) $n ) . '"';
 		$out .= ' style="' . esc_attr( $style ) . '">';
 		$out .= '<span class="split-flap__char"></span>';
+		// Permanente Naht: rein dekorativer 1-px-Überlagerungsstrich, unabhängig
+		// vom Animationszustand. Bleibt auch während des Umklappens sichtbar.
+		$out .= '<span class="split-flap__seam"></span>';
 		$out .= '</span>';
 
 		return $out;
@@ -604,6 +607,8 @@ function split_flap_render_cell( $stelle ) {
 
 	$out  = '<span class="' . esc_attr( $cell_class ) . '" data-sf-target="' . esc_attr( $char ) . '">';
 	$out .= '<span class="split-flap__char">' . esc_html( $is_space ? '' : $char ) . '</span>';
+	// Permanente Naht (siehe Farbflap-Zweig): immer sichtbar, in Ruhe wie im Flip.
+	$out .= '<span class="split-flap__seam"></span>';
 	$out .= '</span>';
 
 	return $out;
