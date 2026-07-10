@@ -159,6 +159,10 @@ Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, API
 
 ## Changelog
 
+### 0.4.0
+
+- Update-Client eingebunden: Das Plugin bezieht Updates vom Self-hosted Server `plugins.blitzdonner.ch`. Die kanonische Klasse `BD_Update_Client` liegt unter `includes/class-bd-update-client.php` und wird auf `plugins_loaded` initialisiert (nicht `init`, damit WordPress die Auto-Update-Schaltung nicht ausblendet). Split-Flap ist ein freies Plugin – für Updates ist kein Lizenz-Token nötig; die Token-Felder bleiben ungesetzt. Der Client prüft jedes Paket per SHA-256 und Ed25519-Signatur (Pflicht); ohne gültige Signatur wird nicht installiert. Kein Killswitch: bei fehlendem Server oder Token verweigert der Client nur das Update, das Plugin läuft normal weiter. Erste Version mit Anschluss an den Update-Server.
+
 ### 0.3.3
 
 - Klappen-Seitenverhältnis von 1.5 auf 1.34 angeglichen (Höhe = Breite × 1.34). Das entspricht dem echten Fallblatt (Referenz rund 120/90 ≈ 1.33) und gilt einheitlich für alle Ausrichtungen (Standard, breit, voll) und beide Blöcke. **Bestehende Tafeln werden dadurch sichtbar flacher.** Das ist eine bewusste, freigegebene optische Änderung, keine stille Regression. Die Klappenbreite und die Obergrenzen (2.1/3.2/4.6rem) bleiben unverändert; nur die Höhe sinkt. Die Schrift hängt an der Klappenhöhe (`--sf-font-size` = Höhe × Faktor).
