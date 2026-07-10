@@ -42,12 +42,22 @@
 	);
 	--sf-cell-h: calc(var(--sf-cell-w) * 1.34);
 	--sf-radius: clamp(2px, 0.5cqw, 4px);
-	/* Schriftfaktor 0.72: fallblatt-treue Präsenz. Gemessen (v0.3.3) bleibt die
-	 * echte Glyphen-Tinte auf jedem Viewport im Klappenfeld – kleinster realer
-	 * Rest-Abstand 1.86 px (Komma, Mobile 360 px), kritische Zeichen rund 3 px.
-	 * Nur die unsichtbare Font-Linienbox (Leading) berührt auf den schmalsten
-	 * Mobile-Klappen die Kante sub-pixel – dort steht keine Tinte. */
-	--sf-font-size: calc(var(--sf-cell-h) * 0.72);
+	/* Schriftfaktor 0.74: fallblatt-treue Präsenz. Zusammen mit der optischen
+	 * Zentrierung der Glyphe (siehe --sf-ink-nudge unten) durfte der Faktor von
+	 * 0.72 auf 0.74 steigen, ohne die Klappenkante zu berühren. Gemessen bleibt
+	 * die echte Glyphen-Tinte auf jedem Viewport im Feld – kleinster realer
+	 * Rest-Abstand rund 2.0 px (Komma, Mobile 390 px), Grossbuchstaben rund
+	 * 2.4 px und mehr. Kein Überstand, kein Abschneiden.
+	 *
+	 * --sf-ink-nudge: optische Vertikal-Korrektur der Glyphe. Bei line-height:1
+	 * zentriert die Flex-Box die Font-Linienbox, nicht die sichtbare Tinte. Die
+	 * Font reserviert unter der Grundlinie Platz für Unterlängen (g, y, p); reine
+	 * Versalien und Ziffern nutzen ihn nicht – die Tinte sitzt dadurch zu hoch,
+	 * unten bleibt eine Lücke. Gemessen an Overpass Mono beträgt die Asymmetrie
+	 * rund 0.24 em; ein Verschieben um 0.12 em nach unten zentriert die Tinte
+	 * (Cap-Height zur Grundlinie) mittig zur Klappe. */
+	--sf-font-size: calc(var(--sf-cell-h) * 0.74);
+	--sf-ink-nudge: 0.12em;
 	--sf-cell-min-w: 0;
 
 	/* 15 Farbflaps – per Inline-Style überschrieben, hier nur als Fallback. */
@@ -182,7 +192,10 @@
 	border-radius: 2px 0 0 2px;
 }
 
-/* Das aktuell sichtbare Zeichen (Endzustand und statische Vorschau). */
+/* Das aktuell sichtbare Zeichen (Endzustand und statische Vorschau).
+ * Der Mittelspalt liegt nicht mehr hinter der Glyphe (dort war er verdeckt),
+ * sondern getrennt: als volle Klappen-Naht auf der Zelle (siehe unten) und
+ * bei Buchstaben zusätzlich durch die Glyphe selbst (background-clip: text). */
 .split-flap__char {
 	position: absolute;
 	inset: 0;
@@ -193,9 +206,6 @@
 	line-height: 1;
 	font-weight: 400;
 	letter-spacing: 0;
-	/* Horizontaler Mittelspalt quer durch die Klappe (dünne dunklere Linie). */
-	background:
-		linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0, 0, 0, 0.6) 50%, transparent calc(50% + 1px));
 }
 
 /* Schriftvarianten. */
@@ -220,6 +230,54 @@
 .split-flap__cell--color .split-flap__char {
 	background:
 		linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0, 0, 0, 0.35) 50%, transparent calc(50% + 1px));
+}
+
+/* ----------------------------------------------------------------------
+ * Mittelspalt und optische Zentrierung der Buchstaben-Glyphe.
+ * -------------------------------------------------------------------- */
+
+/* Volle Klappen-Naht auf der Zellfläche (Buchstaben- und Leerklappen).
+ * Farbflaps tragen ihre Naht über die eigene Char-Regel oben; ihr Inline-
+ * Hintergrund (background:var(--sf-color-N)) überschreibt dieses Bild ohnehin.
+ * Die Naht sitzt exakt auf 50 % – deckungsgleich mit der physischen Trennlinie
+ * der Flip-Hälften (border unten der oberen Hälfte) und mit der Glyphen-Naht. */
+.split-flap__cell:not(.split-flap__cell--color) {
+	background-image:
+		linear-gradient(to bottom, transparent calc(50% - 1px), rgba(0, 0, 0, 0.6) 50%, transparent calc(50% + 1px));
+}
+
+/* Buchstaben-Glyphe: zwei Korrekturen in einer Regel.
+ *  1. Optische Zentrierung: die Glyphe um --sf-ink-nudge nach unten schieben,
+ *     damit die sichtbare Tinte (nicht die Font-Linienbox) mittig zur Klappe
+ *     steht. Wirkt nur auf die Glyphe, nicht auf die Zellnaht darüber.
+ *  2. Naht durch die Glyphe: der Verlauf wird per background-clip: text DURCH
+ *     die Glyphe gemalt (nicht dahinter), sodass der Buchstabe am Mittelspalt
+ *     unterbrochen wirkt – wie die Farbflaps. Die dunkle Naht liegt bei
+ *     calc(50% - --sf-ink-nudge); nach der Verschiebung um +--sf-ink-nudge
+ *     landet sie exakt auf 50 % der Klappe, deckungsgleich mit der Zellnaht. */
+.split-flap__cell:not(.split-flap__cell--color) .split-flap__char {
+	transform: translateY(var(--sf-ink-nudge));
+	color: transparent;
+	-webkit-background-clip: text;
+	background-clip: text;
+	background-image: linear-gradient(
+		to bottom,
+		var(--sf-text) 0%,
+		var(--sf-text) calc(50% - var(--sf-ink-nudge) - 0.05em),
+		rgba(0, 0, 0, 0.55) calc(50% - var(--sf-ink-nudge)),
+		var(--sf-text) calc(50% - var(--sf-ink-nudge) + 0.05em),
+		var(--sf-text) 100%
+	);
+}
+
+/* Fallback für Browser ohne background-clip: text (sehr selten). Dort erscheint
+ * die Glyphe schlicht in der Textfarbe ohne Naht – lieber keine Naht als eine
+ * unsichtbare (transparente) Glyphe. Die optische Zentrierung bleibt erhalten. */
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+	.split-flap__cell:not(.split-flap__cell--color) .split-flap__char {
+		color: var(--sf-text);
+		background-image: none;
+	}
 }
 
 /* Screenreader-Text: visuell versteckt, aber vorlesbar. */
@@ -276,7 +334,10 @@
 	color: transparent;
 }
 
-/* Der Glyph sitzt in jeder Hälfte vertikal zentriert auf voller Zellenhöhe. */
+/* Der Glyph sitzt in jeder Hälfte vertikal zentriert auf voller Zellenhöhe.
+ * Dieselbe optische Zentrierung (--sf-ink-nudge) wie beim statischen Zeichen,
+ * damit die Glyphe beim Übergang Animation → Ruhezustand nicht springt. Bei
+ * Farbflaps ist der Glyph leer, die Verschiebung bleibt dort wirkungslos. */
 .split-flap__cell .sf-flip-top .sf-glyph,
 .split-flap__cell .sf-flip-bottom .sf-glyph {
 	position: absolute;
@@ -287,6 +348,7 @@
 	font-size: var(--sf-font-size);
 	line-height: 1;
 	font-weight: 400;
+	transform: translateY(var(--sf-ink-nudge));
 }
 
 .split-flap__cell .sf-flip-top .sf-glyph {
