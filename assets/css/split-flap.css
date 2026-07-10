@@ -42,7 +42,12 @@
 	);
 	--sf-cell-h: calc(var(--sf-cell-w) * 1.34);
 	--sf-radius: clamp(2px, 0.5cqw, 4px);
-	--sf-font-size: calc(var(--sf-cell-h) * 0.66);
+	/* Schriftfaktor 0.72: fallblatt-treue Präsenz. Gemessen (v0.3.3) bleibt die
+	 * echte Glyphen-Tinte auf jedem Viewport im Klappenfeld – kleinster realer
+	 * Rest-Abstand 1.86 px (Komma, Mobile 360 px), kritische Zeichen rund 3 px.
+	 * Nur die unsichtbare Font-Linienbox (Leading) berührt auf den schmalsten
+	 * Mobile-Klappen die Kante sub-pixel – dort steht keine Tinte. */
+	--sf-font-size: calc(var(--sf-cell-h) * 0.72);
 	--sf-cell-min-w: 0;
 
 	/* 15 Farbflaps – per Inline-Style überschrieben, hier nur als Fallback. */

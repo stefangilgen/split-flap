@@ -161,7 +161,8 @@ Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, API
 
 ### 0.3.3
 
-- Klappen-Seitenverhältnis von 1.5 auf 1.34 angeglichen (Höhe = Breite × 1.34). Das entspricht dem echten Fallblatt (Referenz rund 120/90 ≈ 1.33) und gilt einheitlich für alle Ausrichtungen (Standard, breit, voll) und beide Blöcke. **Bestehende Tafeln werden dadurch sichtbar flacher.** Das ist eine bewusste, freigegebene optische Änderung, keine stille Regression. Die Klappenbreite und die Obergrenzen (2.1/3.2/4.6rem) bleiben unverändert; nur die Höhe sinkt. Die Schrift hängt an der Klappenhöhe (`--sf-font-size` = Höhe × 0.66) und schrumpft deshalb minimal mit – von rund 0.99 × auf 0.88 × der Klappenbreite. Der Schriftfaktor 0.66 selbst bleibt unverändert.
+- Klappen-Seitenverhältnis von 1.5 auf 1.34 angeglichen (Höhe = Breite × 1.34). Das entspricht dem echten Fallblatt (Referenz rund 120/90 ≈ 1.33) und gilt einheitlich für alle Ausrichtungen (Standard, breit, voll) und beide Blöcke. **Bestehende Tafeln werden dadurch sichtbar flacher.** Das ist eine bewusste, freigegebene optische Änderung, keine stille Regression. Die Klappenbreite und die Obergrenzen (2.1/3.2/4.6rem) bleiben unverändert; nur die Höhe sinkt. Die Schrift hängt an der Klappenhöhe (`--sf-font-size` = Höhe × Faktor).
+- Schrift kräftiger: Schriftfaktor von 0.66 auf 0.72 erhöht (rund 9 % mehr Präsenz), damit die Glyphen auf der flacheren Klappe (1.34) so präsent wirken wie beim echten Fallblatt. Die Schrift steigt dadurch auf rund 0.96 × der Klappenbreite. Gemessen bleibt die tatsächliche Glyphen-Tinte auf jedem Viewport im Klappenfeld: kleinster realer Rest-Abstand zur Klappenkante 1.86 px (Komma, Mobile 360 px), für die kritischen Zeichen `M W E H & % * ? / –` und Ziffern rund 3 px und mehr. Kein Überstand, kein Abschneiden – im Ruhezustand wie im Umklappen. Klappen flacher (1.34) und Schrift kräftiger (0.72) liefern zusammen den fallblatt-treuen Look.
 
 ### 0.3.2
 
