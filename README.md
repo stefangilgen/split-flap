@@ -159,6 +159,10 @@ Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, API
 
 ## Changelog
 
+### 0.3.3
+
+- Klappen-Seitenverhältnis von 1.5 auf 1.34 angeglichen (Höhe = Breite × 1.34). Das entspricht dem echten Fallblatt (Referenz rund 120/90 ≈ 1.33) und gilt einheitlich für alle Ausrichtungen (Standard, breit, voll) und beide Blöcke. **Bestehende Tafeln werden dadurch sichtbar flacher.** Das ist eine bewusste, freigegebene optische Änderung, keine stille Regression. Die Klappenbreite und die Obergrenzen (2.1/3.2/4.6rem) bleiben unverändert; nur die Höhe sinkt. Die Schrift hängt an der Klappenhöhe (`--sf-font-size` = Höhe × 0.66) und schrumpft deshalb minimal mit – von rund 0.99 × auf 0.88 × der Klappenbreite. Der Schriftfaktor 0.66 selbst bleibt unverändert.
+
 ### 0.3.2
 
 - Sound vollständig entfernt: kein synthetischer Klappersound, kein Ton-Toggle, keine Web-Audio-Nutzung mehr. Das Custom-Event `splitflap:flip` am Board-Element bleibt als Erweiterungsstelle erhalten.
