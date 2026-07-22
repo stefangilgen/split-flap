@@ -72,7 +72,10 @@
 				className: 'split-flap split-flap--editor ' + fontClass,
 				style: {
 					'--sf-text': attributes.textfarbe,
-					'--sf-flap': attributes.klappenfarbe
+					'--sf-flap': attributes.klappenfarbe,
+					// Effektive Klappenzahl auch im Editor setzen – sonst greift
+					// der CSS-Fallback (25) und die Vorschau weicht vom Frontend ab.
+					'--sf-stellen': String( result.count )
 				}
 			} );
 

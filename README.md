@@ -159,6 +159,11 @@ Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, API
 
 ## Changelog
 
+### 0.4.2
+
+- Die Klappen füllen jetzt immer die volle verfügbare Containerbreite – die feste Obergrenze der Klappenbreite (`--sf-cell-max`, 2.1/3.2/4.6 rem je nach Ausrichtung) entfällt ersatzlos. Bisher blieben Boards mit wenigen Stellen klein, obwohl der Container viel mehr Platz bot; der Rest lag als ungenutzter Rand daneben. Neu ergibt sich die Klappenbreite allein aus Containerbreite geteilt durch Stellenzahl (abzüglich Rahmen-Padding und Gaps) – in jeder Ausrichtung (Standard, breit, voll). Gemessen bei 8 Stellen auf 1440 px: Standard 33.6 → 75.4 px, «breit» 51.2 → 160.5 px, «voll» 73.6 → 173 px Klappenbreite; der Rahmen sitzt jetzt praktisch containerbreit. Buchstaben und Klappenhöhe skalieren proportional mit, das Seitenverhältnis bleibt exakt 1.34. Die Untergrenze (0.62 rem) bleibt und schützt Boards mit vielen Stellen auf schmalen Bildschirmen; Boards mit vielen Stellen ändern sich nicht (dort begrenzte schon der Container). Kein horizontaler Überlauf auf Mobile (360/390 px, 2/8/25 Stellen, alle Ausrichtungen geprüft).
+- Editor-Vorschau angeglichen: Beide Editor-Vorschauen setzen jetzt `--sf-stellen` inline (wie `render.php` im Frontend). Vorher griff im Editor stets der CSS-Fallback von 25 Stellen – die Vorschau zeigte bei wenigen Stellen zu kleine Klappen. Jetzt misst die Editor-Canvas dieselben Klappenbreiten wie das Frontend.
+
 ### 0.4.1
 
 - Führende und folgende Leerzeichen in Szenen bleiben erhalten. `wp_strip_all_tags()` ruft am Ende immer `trim()` auf und verschluckte damit Leerzeichen, die als echte Leer-Klappen gemeint sind – «  ABFAHRT» startete auf Klappe 1 statt auf Klappe 3. Die Szenen-Bereinigung nutzt jetzt natives `strip_tags()` ohne Trim-Nebeneffekt. Die Tag-Entfernung bleibt als Verteidigungslinie; die eigentliche Absicherung leistet weiterhin die feste Zeichen-Whitelist in `split_flap_normalize_char()`.

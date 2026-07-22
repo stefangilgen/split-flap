@@ -162,9 +162,13 @@
 
 			var fontClass = 'theme' === attributes.schrift ? 'split-flap--font-theme' : 'split-flap--font-mono';
 
+			// --sf-stellen muss auch in der Editor-Vorschau gesetzt sein – sonst
+			// greift der CSS-Fallback (25) und die Klappenbreite weicht bei
+			// weniger Stellen vom Frontend ab (render.php setzt sie inline).
 			var styleVars = {
 				'--sf-text': attributes.textfarbe,
-				'--sf-flap': attributes.klappenfarbe
+				'--sf-flap': attributes.klappenfarbe,
+				'--sf-stellen': String( attributes.stellen )
 			};
 			for ( var ci = 0; ci < 15; ci++ ) {
 				styleVars[ '--sf-color-' + ( ci + 1 ) ] = colorAt( ci );

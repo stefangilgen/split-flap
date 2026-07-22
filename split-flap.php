@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Split-Flap
  * Description: Animierte Fallblattanzeige (Split-Flap-Display) für WordPress – einzeilig oder als mehrzeiliges Board mit Szenen-Wechsel und Farbflaps. Als Gutenberg-Block und als Shortcode. Reines PHP, Vanilla JS und CSS, ohne Drittanbieter-Bibliothek.
- * Version: 0.4.1
+ * Version: 0.4.2
  * Author: Blitz & Donner
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'SPLIT_FLAP_FILE', __FILE__ );
 define( 'SPLIT_FLAP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SPLIT_FLAP_URL', plugin_dir_url( __FILE__ ) );
-define( 'SPLIT_FLAP_VERSION', '0.4.1' );
+define( 'SPLIT_FLAP_VERSION', '0.4.2' );
 
 require_once SPLIT_FLAP_DIR . 'includes/render.php';
 require_once SPLIT_FLAP_DIR . 'includes/assets.php';
