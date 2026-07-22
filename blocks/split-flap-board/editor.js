@@ -15,6 +15,7 @@
 	var registerBlockType = wp.blocks.registerBlockType;
 	var useBlockProps = wp.blockEditor.useBlockProps;
 	var InspectorControls = wp.blockEditor.InspectorControls;
+	var PanelColorSettings = wp.blockEditor.PanelColorSettings;
 
 	var PanelBody = wp.components.PanelBody;
 	var TextareaControl = wp.components.TextareaControl;
@@ -398,6 +399,30 @@
 						}
 					} )
 				),
+				// Grundfarben der Anzeige (Text und Klappen) – bewusst «Grundfarben»
+				// statt «Farben», damit das Panel nicht mit «Farbflaps» (den 15
+				// Blockfarben der {n}-Syntax) verwechselt wird. Fallbacks = die
+				// Board-Defaults aus block.json (#C8C8C8 / #1A1A1A).
+				el( PanelColorSettings, {
+					title: __( 'Grundfarben', 'split-flap' ),
+					initialOpen: false,
+					colorSettings: [
+						{
+							value: attributes.textfarbe,
+							onChange: function ( value ) {
+								setAttributes( { textfarbe: value || '#C8C8C8' } );
+							},
+							label: __( 'Textfarbe', 'split-flap' )
+						},
+						{
+							value: attributes.klappenfarbe,
+							onChange: function ( value ) {
+								setAttributes( { klappenfarbe: value || '#1A1A1A' } );
+							},
+							label: __( 'Klappenfarbe', 'split-flap' )
+						}
+					]
+				} ),
 				el(
 					PanelBody,
 					{ title: __( 'Farbflaps', 'split-flap' ), initialOpen: false },

@@ -159,6 +159,10 @@ Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, API
 
 ## Changelog
 
+### 0.4.3
+
+- Text- und Klappenfarbe sind jetzt auch im Board-Block einstellbar. Der Board-Block hatte die Attribute `textfarbe` und `klappenfarbe` von Anfang an (Frontend-Render und Shortcode nutzten sie bereits) – im Editor fehlte nur das Bedienelement. Neu bietet die Seitenleiste das Panel «Grundfarben» mit den zwei Farbfeldern, gleich gebaut wie das «Farben»-Panel des einzeiligen Blocks. Der Panel-Titel heisst bewusst «Grundfarben», damit keine Verwechslung mit dem bestehenden Panel «Farbflaps» (den 15 Blockfarben der {1}–{15}-Syntax) entsteht. Beim Zurücksetzen greifen die Board-Defaults #C8C8C8 (Text) und #1A1A1A (Klappen); bestehende Boards ohne gesetzte Farben sehen unverändert aus. Die Editor-Vorschau zeigt die gewählten Farben sofort. Hinweis: Die Default-Kombination bleibt mit einem Kontrast von 10.4:1 gut lesbar – eine extreme eigene Farbwahl kann den Kontrast unter die Lesbarkeitsgrenze drücken, das Plugin erzwingt hier nichts.
+
 ### 0.4.2
 
 - Die Klappen füllen jetzt immer die volle verfügbare Containerbreite – die feste Obergrenze der Klappenbreite (`--sf-cell-max`, 2.1/3.2/4.6 rem je nach Ausrichtung) entfällt ersatzlos. Bisher blieben Boards mit wenigen Stellen klein, obwohl der Container viel mehr Platz bot; der Rest lag als ungenutzter Rand daneben. Neu ergibt sich die Klappenbreite allein aus Containerbreite geteilt durch Stellenzahl (abzüglich Rahmen-Padding und Gaps) – in jeder Ausrichtung (Standard, breit, voll). Gemessen bei 8 Stellen auf 1440 px: Standard 33.6 → 75.4 px, «breit» 51.2 → 160.5 px, «voll» 73.6 → 173 px Klappenbreite; der Rahmen sitzt jetzt praktisch containerbreit. Buchstaben und Klappenhöhe skalieren proportional mit, das Seitenverhältnis bleibt exakt 1.34. Die Untergrenze (0.62 rem) bleibt und schützt Boards mit vielen Stellen auf schmalen Bildschirmen; Boards mit vielen Stellen ändern sich nicht (dort begrenzte schon der Container). Kein horizontaler Überlauf auf Mobile (360/390 px, 2/8/25 Stellen, alle Ausrichtungen geprüft).
