@@ -393,9 +393,15 @@ function split_flap_sanitize_board_args( $args ) {
 	$szenen_roh = isset( $args['szenen'] ) && is_array( $args['szenen'] ) ? $args['szenen'] : array();
 	$szenen     = array();
 	foreach ( $szenen_roh as $szene ) {
-		// Mehrzeiliger Text: Tags entfernen, aber Zeilenumbrüche bewahren.
+		// Mehrzeiliger Text: Tags entfernen, aber Zeilenumbrüche UND führende/
+		// folgende Leerzeichen bewahren. wp_strip_all_tags() ruft am Ende immer
+		// trim() auf und frässe damit Leerzeichen, die als echte Leer-Klappen
+		// gemeint sind (z.B. «  ABFAHRT» beginnt mit zwei Leer-Klappen). Darum
+		// natives strip_tags(): Tag-Entfernung bleibt als Verteidigungslinie,
+		// der Trim-Nebeneffekt entfällt. Sicherheitsnetz dahinter ist ohnehin
+		// split_flap_normalize_char() mit fester Zeichen-Whitelist.
 		$szene    = is_string( $szene ) ? $szene : '';
-		$szene    = wp_strip_all_tags( $szene );
+		$szene    = strip_tags( $szene ); // phpcs:ignore WordPress.WP.AlternativeFunctions.strip_tags_strip_tags -- wp_strip_all_tags() trimmt; führende Leerzeichen sind hier Nutzdaten.
 		$szenen[] = $szene;
 	}
 	if ( empty( $szenen ) ) {

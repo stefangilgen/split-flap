@@ -27,18 +27,22 @@
 
 	/* Klappengrösse bindet an den Container, nicht an den Viewport. Die Breite
 	 * ergibt sich aus dem verfügbaren Containerraum (cqw) geteilt durch die Zahl
-	 * der Stellen, abzüglich Gaps. So passen alle Stellen ohne Scrollbar in den
-	 * Container – egal wie breit das Theme den Inhalt rendert (Container Query).
+	 * der Stellen, abzüglich Rahmen-Padding und Gaps. So passen alle Stellen ohne
+	 * Scrollbar in den Container – egal wie breit das Theme den Inhalt rendert
+	 * (Container Query). Das Rahmen-Padding (--sf-pad) liegt seit v0.4.1 auf der
+	 * inneren Tafel (.split-flap__rows) und muss deshalb hier in der Formel
+	 * abgezogen werden – vorher steckte es als Container-Padding implizit im cqw.
 	 * Eine harte Obergrenze (--sf-cell-max, Standard 2.1rem) verhindert riesige
 	 * Klappen bei wenig Stellen, eine Untergrenze hält sie auf Mobile lesbar.
 	 * Die Obergrenze hängt an der Block-Ausrichtung: «breit» und «voll» heben sie
 	 * an (siehe .alignwide / .alignfull weiter unten). So wachsen Klappen, Höhe und
 	 * Schrift proportional mit – die Mechanik bleibt unverändert. */
 	--sf-cell-max: 2.1rem;
+	--sf-pad: clamp(6px, 1.2vw, 14px);
 	--sf-gap: clamp(1px, 0.3cqw, 4px);
 	--sf-cell-w: min(
 		var(--sf-cell-max),
-		max( 0.62rem, calc( (100cqw - (var(--sf-stellen) - 1) * var(--sf-gap)) / var(--sf-stellen) ) )
+		max( 0.62rem, calc( (100cqw - 2 * var(--sf-pad) - (var(--sf-stellen) - 1) * var(--sf-gap)) / var(--sf-stellen) ) )
 	);
 	--sf-cell-h: calc(var(--sf-cell-w) * 1.34);
 	--sf-radius: clamp(2px, 0.5cqw, 4px);
@@ -78,10 +82,13 @@
 	--sf-color-15: #F4F4F4;
 
 	position: relative;
-	/* Block-Element, das die verfügbare Breite des Theme-Inhaltscontainers füllt.
-	 * Die Klappen skalieren per Container Query hinein – nie über den Container
-	 * hinaus, also nie horizontaler Überlauf. Bei wenigen Stellen begrenzt die
-	 * Klappen-Obergrenze die Boardbreite; box-sizing hält das Padding inklusive. */
+	/* Unsichtbarer Mess-Container: füllt die verfügbare Breite des Theme-
+	 * Inhaltscontainers und liefert den cqw-Bezug für die Klappengrösse. Die
+	 * sichtbare Tafel (Anthrazit-Rahmen) liegt seit v0.4.1 auf der inneren
+	 * .split-flap__rows und schrumpft dort per fit-content auf die tatsächliche
+	 * Klappenraster-Breite. Der Mess-Container selbst darf NICHT fit-content
+	 * sein: container-type: inline-size erzwingt Inline-Size-Containment, die
+	 * eigene Breite wird «wie leer» berechnet – fit-content kollabierte auf 0. */
 	display: block;
 	box-sizing: border-box;
 	width: 100%;
@@ -90,20 +97,37 @@
 	 * dieses Containers, nicht den Viewport. So passt das Board in jedes Theme. */
 	container-type: inline-size;
 	font-family: "Overpass Mono", "SFMono-Regular", "DejaVu Sans Mono", monospace;
-	/* Dunkles Anthrazit als Rahmen rund um die Klappen (Referenz: #303030). */
-	background: #303030;
-	padding: clamp(6px, 1.2vw, 14px);
-	border-radius: clamp(4px, 1vw, 10px);
-	box-shadow: inset 0 0 12px -2px rgba(0, 0, 0, 0.8);
 }
 
-/* Mehrere Board-Zeilen untereinander. Kein overflow-x: das Board passt durch
- * die Container Query immer in seinen Container – kein horizontales Scrollen. */
+/* Die sichtbare Tafel: dunkles Anthrazit als Rahmen rund um die Klappen
+ * (Referenz: #303030). width: fit-content legt den Rahmen eng ums tatsächliche
+ * Klappenraster – wie ein Bilderrahmen, nicht wie ein Passepartout. Bei vielen
+ * Stellen füllt das Raster den Container ohnehin (Container-Query-Formel), dann
+ * greift max-width: 100% und die Tafel bleibt exakt containerbreit – kein
+ * horizontales Scrollen. Auto-Margins zentrieren jede resultierende Breite. */
 .split-flap__rows {
 	display: flex;
 	flex-direction: column;
 	gap: var(--sf-gap);
+	box-sizing: border-box;
+	width: fit-content;
 	max-width: 100%;
+	margin-left: auto;
+	margin-right: auto;
+	background: #303030;
+	padding: var(--sf-pad);
+	border-radius: clamp(4px, 1vw, 10px);
+	box-shadow: inset 0 0 12px -2px rgba(0, 0, 0, 0.8);
+}
+
+/* Position der geschrumpften Tafel folgt der Block-Ausrichtung. Standard und
+ * «mittig» zentrieren (Auto-Margins oben), links/rechts docken am Rand an. */
+.split-flap.alignleft .split-flap__rows {
+	margin-left: 0;
+}
+
+.split-flap.alignright .split-flap__rows {
+	margin-right: 0;
 }
 
 /* Eine Board-Zeile: Klappen nebeneinander, im Board mittig (T-2). */
@@ -136,11 +160,14 @@
 .split-flap.alignfull {
 	--sf-cell-max: 4.6rem;
 
-	/* Echtes Full-Bleed, theme-unabhängig: Der dunkle Tafelrahmen spannt sich
-	 * über die volle Viewport-Breite, egal wie schmal das Theme den Inhalts-
-	 * container hält. Twenty-Twenty-Five etwa setzt alignfull nur über negative
-	 * Margins bis zur Container-Breite um – das reicht nicht. Hier zwingen wir
-	 * echte Vollbreite.
+	/* «Voll» bricht den unsichtbaren Mess-Container auf die volle Viewport-
+	 * Breite aus, egal wie schmal das Theme den Inhaltscontainer hält.
+	 * Twenty-Twenty-Five etwa setzt alignfull nur über negative Margins bis
+	 * zur Container-Breite um – das reicht nicht. Der Ausbruch gibt den Klappen
+	 * den Raum, bis --sf-cell-max: 4.6rem zu wachsen; die sichtbare Tafel
+	 * (.split-flap__rows, fit-content) nimmt davon nur, was der Inhalt braucht,
+	 * und zentriert sich per Auto-Margins im Viewport. Bei wenigen Stellen
+	 * bleibt der Rahmen also schmal, bei vielen füllt er die Viewport-Breite.
 	 *
 	 * Fallstrick: 100vw schliesst die Breite der vertikalen Scrollbar mit ein
 	 * und erzeugt dann horizontalen Überlauf. Deshalb misst split-flap.js die
