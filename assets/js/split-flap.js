@@ -491,6 +491,11 @@
 		// Animationsstil: «synchron» (Modus B) oder «sequenziell» (Default, Modus A).
 		var stil = board.getAttribute( 'data-sf-stil' ) === 'synchron' ? 'synchron' : 'sequenziell';
 
+		// Startverhalten des Erstaufbaus: «zufall» (Default) oder «alpha». Wirkt nur
+		// im sequenziellen Erstaufbau; die synchron-farbige Welle startet immer auf
+		// Farbe 1, bei reduced-motion bleibt das Board ohnehin statisch.
+		var startMode = board.getAttribute( 'data-sf-start' ) === 'alpha' ? 'alpha' : 'zufall';
+
 		// Modus-B-Tick: gedeckelt, damit der längste Ring-Durchlauf (63 Schritte)
 		// bei «normal» ≤ 2.5 s bleibt.
 		var syncTickMs = Math.min( flipMs, SYNC_TICK_CAP_MS );
@@ -623,12 +628,41 @@
 		/**
 		 * Initialer Aufbau: erste Szene vom Startzustand «durchrattern».
 		 *
+		 * Verzweigt auf den Animationsstil: Bei «synchron» läuft schon der Erstaufbau
+		 * als farbige Welle durch den SYNC_RING – alle Klappen starten gleichzeitig
+		 * auf Farbe 1 und stoppen gestaffelt auf dem Zieltext. So zeigt jedes
+		 * synchron-Board den Effekt sofort beim Erscheinen im Viewport, auch mit nur
+		 * einer Szene. Bei «sequenziell» rattern die Stellen wie bisher versetzt;
+		 * dort (und nur dort) wirkt das Startverhalten «zufall»/«alpha»: jede
+		 * animierende Klappe zeigt vor dem Rattern ihr Startglyph aus dem Zeichensatz.
+		 *
 		 * @return {void}
 		 */
 		function buildFirstScene() {
 			var target = flattenScene( scenes[ 0 ] );
+
+			// Synchron-farbiger Erstaufbau: dieselbe Welle wie goToSceneSync, nur
+			// ohne Szenenindex-Wechsel. Alle Klappen laufen mit, auch leere Ziele –
+			// die Welle ist ein Board-weiter Effekt.
+			if ( 'synchron' === stil ) {
+				for ( var s = 0; s < cells.length; s++ ) {
+					animateCellSync( cells[ s ], s < target.length ? target[ s ] : ' ', syncTickMs );
+				}
+
+				currentTokens = target;
+				firstBuildDurationMs = syncDurationMs();
+
+				board.dispatchEvent( new CustomEvent( 'splitflap:flip', {
+					detail: { changed: cells.length, sceneIndex: 0, stil: 'synchron' }
+				} ) );
+				return;
+			}
+
 			var changed = 0;
 			var stagger = Math.max( 18, flipMs * 0.8 );
+
+			// Erstes Zeichen des aktiven Zeichensatzes (Startverhalten «alpha»).
+			var alphaGlyph = Array.from( config.charset )[ 0 ] || ' ';
 
 			for ( var i = 0; i < cells.length; i++ ) {
 				var to = i < target.length ? target[ i ] : ' ';
@@ -638,6 +672,11 @@
 					continue;
 				}
 				changed++;
+				// Startglyph gemäss data-sf-start setzen, BEVOR animateCell den
+				// aktuellen Klappentext als Ausgangswert übernimmt. Das Markup zeigt
+				// serverseitig den Zieltext (No-JS/SEO); erst hier beginnt die Klappe
+				// sichtbar auf ihrem Startglyph und rattert dann zum Ziel.
+				setStatic( cells[ i ], 'alpha' === startMode ? alphaGlyph : randomGlyph( config.charset ) );
 				( function ( cell, token, order ) {
 					animateCell( cell, config, token, ( order - 1 ) * stagger, null );
 				} )( cells[ i ], to, changed );

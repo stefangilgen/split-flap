@@ -1,11 +1,10 @@
 <?php
 /**
- * Registriert die Shortcodes [split_flap] (einzeilig, v1) und
- * [split_flap_board] (mehrzeiliges Board, v2).
+ * Registriert den Shortcode [split_flap_board] (mehrzeiliges Board).
  *
- * Beide mappen ihre Parameter auf die internen Schlüssel und rufen dieselbe
- * Render-Funktion wie der jeweilige Block auf. So bleibt das Ergebnis identisch
- * und es gibt keine Logik-Duplikate.
+ * Der Shortcode mappt seine Parameter auf die internen Schlüssel und ruft dieselbe
+ * Render-Funktion wie der Block auf. So bleibt das Ergebnis identisch und es gibt
+ * keine Logik-Duplikate.
  *
  * @package Split_Flap
  */
@@ -15,59 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Übersetzt die menschenfreundlichen Shortcode-Werte auf die internen Schlüssel.
- *
- * @param array<string, mixed> $atts Bereinigte Shortcode-Attribute.
- * @return array<string, mixed> Auf interne Schlüssel gemappte Werte.
- */
-function split_flap_map_shortcode_atts( $atts ) {
-	$schrift_map = array(
-		'mono'  => 'mono',
-		'theme' => 'theme',
-	);
-
-	$schrift_key = strtolower( (string) $atts['schrift'] );
-
-	return array(
-		'text'         => $atts['text'],
-		'felder'       => $atts['felder'],
-		'tempo'        => strtolower( (string) $atts['tempo'] ),
-		'textfarbe'    => $atts['textfarbe'],
-		'klappenfarbe' => $atts['klappenfarbe'],
-		'schrift'      => isset( $schrift_map[ $schrift_key ] ) ? $schrift_map[ $schrift_key ] : $schrift_key,
-		'grossschrift' => $atts['grossschrift'],
-	);
-}
-
-/**
- * Handler für [split_flap] (einzeilige v1-Anzeige).
- *
- * @param array<string, mixed>|string $atts Shortcode-Attribute.
- * @return string HTML-Markup.
- */
-function split_flap_shortcode( $atts ) {
-	$atts = shortcode_atts(
-		array(
-			'text'         => '',
-			'felder'       => '0',
-			'tempo'        => 'normal',
-			'textfarbe'    => '#C8C8C8',
-			'klappenfarbe' => '#1A1A1A',
-			'schrift'      => 'mono',
-			'grossschrift' => 'true',
-		),
-		is_array( $atts ) ? array_change_key_case( $atts, CASE_LOWER ) : array(),
-		'split_flap'
-	);
-
-	split_flap_enqueue_frontend();
-
-	return split_flap_render( split_flap_map_shortcode_atts( $atts ) );
-}
-add_shortcode( 'split_flap', 'split_flap_shortcode' );
-
-/**
- * Handler für [split_flap_board] (mehrzeiliges Board mit Szenen, Farbflaps, Sound).
+ * Handler für [split_flap_board] (mehrzeiliges Board mit Szenen und Farbflaps).
  *
  * Szenen kommen als Attribute scene1, scene2 … Innerhalb einer Szene trennt «|»
  * die Board-Zeilen. Fehlt jedes scene-Attribut, fällt der Handler auf eine leere
@@ -86,16 +33,19 @@ function split_flap_board_shortcode( $atts ) {
 	$atts = is_array( $atts ) ? array_change_key_case( $atts, CASE_LOWER ) : array();
 
 	$defaults = array(
-		'zeilen'       => '6',
+		'zeilen'       => '1',
 		'stellen'      => '25',
 		'intervall'    => '6',
 		'tempo'        => 'normal',
 		'stil'         => 'sequenziell',
+		'zeichen'      => 'alnum',
+		'start'        => 'zufall',
 		'schrift'      => 'mono',
 		'grossschrift' => 'true',
 		'farben'       => '',
 		'textfarbe'    => '#C8C8C8',
 		'klappenfarbe' => '#1A1A1A',
+		'rahmenfarbe'  => '#303030',
 	);
 
 	// Szenen-Attribute (scene1 … sceneN) einsammeln, der Reihe nach.
@@ -120,11 +70,14 @@ function split_flap_board_shortcode( $atts ) {
 		'intervall'    => $merged['intervall'],
 		'tempo'        => strtolower( (string) $merged['tempo'] ),
 		'stil'         => strtolower( (string) $merged['stil'] ),
+		'zeichen'      => strtolower( (string) $merged['zeichen'] ),
+		'start'        => strtolower( (string) $merged['start'] ),
 		'schrift'      => strtolower( (string) $merged['schrift'] ),
 		'grossschrift' => $merged['grossschrift'],
 		'farben'       => $merged['farben'],
 		'textfarbe'    => $merged['textfarbe'],
 		'klappenfarbe' => $merged['klappenfarbe'],
+		'rahmenfarbe'  => $merged['rahmenfarbe'],
 	);
 
 	split_flap_enqueue_frontend();
@@ -134,7 +87,7 @@ function split_flap_board_shortcode( $atts ) {
 add_shortcode( 'split_flap_board', 'split_flap_board_shortcode' );
 
 /**
- * Reiht die Frontend-Assets früh ein, wenn der aktuelle Post einen der Shortcodes
+ * Reiht die Frontend-Assets früh ein, wenn der aktuelle Post den Shortcode
  * enthält. Läuft auf wp_enqueue_scripts, also vor wp_head, damit das CSS sicher
  * im <head> landet. Das bedingte Enqueue bleibt erhalten.
  *
@@ -147,9 +100,7 @@ function split_flap_enqueue_shortcode_assets() {
 
 	$post = get_post();
 
-	if ( $post instanceof WP_Post
-		&& ( has_shortcode( $post->post_content, 'split_flap' )
-			|| has_shortcode( $post->post_content, 'split_flap_board' ) ) ) {
+	if ( $post instanceof WP_Post && has_shortcode( $post->post_content, 'split_flap_board' ) ) {
 		split_flap_enqueue_frontend();
 	}
 }

@@ -169,6 +169,7 @@
 			var styleVars = {
 				'--sf-text': attributes.textfarbe,
 				'--sf-flap': attributes.klappenfarbe,
+				'--sf-frame': attributes.rahmenfarbe,
 				'--sf-stellen': String( attributes.stellen )
 			};
 			for ( var ci = 0; ci < 15; ci++ ) {
@@ -328,7 +329,7 @@
 						label: __( 'Zeilen', 'split-flap' ),
 						value: attributes.zeilen,
 						onChange: function ( value ) {
-							setAttributes( { zeilen: undefined === value ? 6 : value } );
+							setAttributes( { zeilen: undefined === value ? 1 : value } );
 						},
 						min: 1,
 						max: MAX_ZEILEN
@@ -385,7 +386,32 @@
 						onChange: function ( value ) {
 							setAttributes( { stil: value } );
 						},
-						help: __( 'Synchron farbig: alle Klappen laufen beim Szenenwechsel gemeinsam durch die Farben.', 'split-flap' )
+						help: __( 'Synchron farbig: alle Klappen laufen beim Erstaufbau und bei jedem Szenenwechsel gemeinsam durch die Farben.', 'split-flap' )
+					} ),
+					el( SelectControl, {
+						label: __( 'Zeichensatz', 'split-flap' ),
+						value: attributes.zeichen,
+						options: [
+							{ label: __( 'A–Z 0–9', 'split-flap' ), value: 'alnum' },
+							{ label: __( 'nur Zahlen', 'split-flap' ), value: 'zahlen' },
+							{ label: __( 'erweitert (inkl. Sonderzeichen)', 'split-flap' ), value: 'erweitert' }
+						],
+						onChange: function ( value ) {
+							setAttributes( { zeichen: value } );
+						},
+						help: __( 'Formt den Flicker beim Aufbau und bei sequenziellen Wechseln. Der synchron-farbige Wechsel läuft durch den festen Farbring.', 'split-flap' )
+					} ),
+					el( SelectControl, {
+						label: __( 'Startverhalten', 'split-flap' ),
+						value: attributes.start,
+						options: [
+							{ label: __( 'Zufallszeichen', 'split-flap' ), value: 'zufall' },
+							{ label: __( 'alphabetisch', 'split-flap' ), value: 'alpha' }
+						],
+						onChange: function ( value ) {
+							setAttributes( { start: value } );
+						},
+						help: __( 'Startglyph der Klappen beim sequenziellen Erstaufbau. Der synchron-farbige Erstaufbau startet immer auf Farbe 1.', 'split-flap' )
 					} ),
 					el( SelectControl, {
 						label: __( 'Schrift', 'split-flap' ),
@@ -399,30 +425,6 @@
 						}
 					} )
 				),
-				// Grundfarben der Anzeige (Text und Klappen) – bewusst «Grundfarben»
-				// statt «Farben», damit das Panel nicht mit «Farbflaps» (den 15
-				// Blockfarben der {n}-Syntax) verwechselt wird. Fallbacks = die
-				// Board-Defaults aus block.json (#C8C8C8 / #1A1A1A).
-				el( PanelColorSettings, {
-					title: __( 'Grundfarben', 'split-flap' ),
-					initialOpen: false,
-					colorSettings: [
-						{
-							value: attributes.textfarbe,
-							onChange: function ( value ) {
-								setAttributes( { textfarbe: value || '#C8C8C8' } );
-							},
-							label: __( 'Textfarbe', 'split-flap' )
-						},
-						{
-							value: attributes.klappenfarbe,
-							onChange: function ( value ) {
-								setAttributes( { klappenfarbe: value || '#1A1A1A' } );
-							},
-							label: __( 'Klappenfarbe', 'split-flap' )
-						}
-					]
-				} ),
 				el(
 					PanelBody,
 					{ title: __( 'Farbflaps', 'split-flap' ), initialOpen: false },
@@ -456,7 +458,45 @@
 				)
 			);
 
-			return el( Fragment, null, inspector, notices, preview );
+			// Stile-Tab: die drei Grundfarben der Anzeige (Text, Klappen, Rahmen) –
+			// bewusst «Grundfarben» statt «Farben», damit das Panel nicht mit
+			// «Farbflaps» (den 15 Blockfarben der {n}-Syntax) verwechselt wird.
+			// PanelColorSettings bindet die Theme-Palette automatisch ein und
+			// speichert Hex direkt in den Attributen (kein Slug-Auflösen im Render).
+			// Fallbacks = die Board-Defaults aus block.json.
+			var styleInspector = el(
+				InspectorControls,
+				{ group: 'styles' },
+				el( PanelColorSettings, {
+					title: __( 'Grundfarben', 'split-flap' ),
+					initialOpen: true,
+					colorSettings: [
+						{
+							value: attributes.textfarbe,
+							onChange: function ( value ) {
+								setAttributes( { textfarbe: value || '#C8C8C8' } );
+							},
+							label: __( 'Textfarbe', 'split-flap' )
+						},
+						{
+							value: attributes.klappenfarbe,
+							onChange: function ( value ) {
+								setAttributes( { klappenfarbe: value || '#1A1A1A' } );
+							},
+							label: __( 'Klappenfarbe', 'split-flap' )
+						},
+						{
+							value: attributes.rahmenfarbe,
+							onChange: function ( value ) {
+								setAttributes( { rahmenfarbe: value || '#303030' } );
+							},
+							label: __( 'Rahmenfarbe', 'split-flap' )
+						}
+					]
+				} )
+			);
+
+			return el( Fragment, null, inspector, styleInspector, notices, preview );
 		},
 
 		// Dynamischer Block: das Frontend rendert serverseitig (render_callback).

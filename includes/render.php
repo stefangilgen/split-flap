@@ -4,10 +4,7 @@
  *
  * Hier leben Validierung, Normalisierung und HTML-Aufbau an genau einer Stelle.
  * Block (includes/block.php) und Shortcode (includes/shortcode.php) rufen beide
- * dieselbe Render-Funktion auf – keine Logik-Duplikate.
- *
- * v2 führt das mehrzeilige Board ein. Die einzeilige v1-Anzeige ist der Sonderfall
- * «Board mit einer Zeile»: split_flap_render() (v1) ruft intern split_flap_render_board().
+ * dieselbe Render-Funktion split_flap_render_board() auf – keine Logik-Duplikate.
  *
  * @package Split_Flap
  */
@@ -26,31 +23,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 function split_flap_allowed_values() {
 	return array(
 		'tempo'   => array( 'langsam', 'normal', 'schnell' ),
-		'start'   => array( 'zufall', 'leer', 'alpha' ),
+		'start'   => array( 'zufall', 'alpha' ),
 		'zeichen' => array( 'alnum', 'zahlen', 'erweitert' ),
 		'schrift' => array( 'mono', 'theme' ),
 		'stil'    => array( 'sequenziell', 'synchron' ),
-	);
-}
-
-/**
- * Gibt die Standardwerte aller v1-Optionen zurück.
- *
- * Diese Defaults gelten für die einzeilige Anzeige (Block- und Shortcode-Sonderfall).
- *
- * @return array<string, mixed>
- */
-function split_flap_defaults() {
-	return array(
-		'text'         => '',
-		'felder'       => 0,      // 0 = automatisch (Länge des Textes).
-		'tempo'        => 'normal',
-		'start'        => 'zufall',
-		'zeichen'      => 'alnum',
-		'textfarbe'    => '#F4F4F4',
-		'klappenfarbe' => '#1A1A1A',
-		'schrift'      => 'mono',
-		'grossschrift' => true,
 	);
 }
 
@@ -379,10 +355,13 @@ function split_flap_scene_to_text( $raster ) {
  *   stellen: int,
  *   intervall: int,
  *   tempo: string,
+ *   zeichen: string,
+ *   start: string,
  *   farben: array<int, string>,
  *   grossschrift: bool,
  *   textfarbe: string,
  *   klappenfarbe: string,
+ *   rahmenfarbe: string,
  *   schrift: string
  * } Bereinigte Werte.
  */
@@ -408,7 +387,7 @@ function split_flap_sanitize_board_args( $args ) {
 		$szenen = array( '' );
 	}
 
-	$zeilen = isset( $args['zeilen'] ) ? (int) $args['zeilen'] : 6;
+	$zeilen = isset( $args['zeilen'] ) ? (int) $args['zeilen'] : 1;
 	if ( $zeilen < 1 ) {
 		$zeilen = 1;
 	}
@@ -438,6 +417,11 @@ function split_flap_sanitize_board_args( $args ) {
 
 	$stil = ( isset( $args['stil'] ) && in_array( $args['stil'], $allowed['stil'], true ) ) ? $args['stil'] : 'sequenziell';
 
+	// Zeichensatz des Flickers und Startverhalten des Erstaufbaus – Whitelist-Prüfung.
+	$zeichen = ( isset( $args['zeichen'] ) && in_array( $args['zeichen'], $allowed['zeichen'], true ) ) ? $args['zeichen'] : 'alnum';
+
+	$start = ( isset( $args['start'] ) && in_array( $args['start'], $allowed['start'], true ) ) ? $args['start'] : 'zufall';
+
 	$gross = isset( $args['grossschrift'] )
 		? filter_var( $args['grossschrift'], FILTER_VALIDATE_BOOLEAN )
 		: true;
@@ -446,6 +430,7 @@ function split_flap_sanitize_board_args( $args ) {
 
 	$textfarbe    = split_flap_sanitize_color( isset( $args['textfarbe'] ) ? $args['textfarbe'] : '', '#C8C8C8' );
 	$klappenfarbe = split_flap_sanitize_color( isset( $args['klappenfarbe'] ) ? $args['klappenfarbe'] : '', '#1A1A1A' );
+	$rahmenfarbe  = split_flap_sanitize_color( isset( $args['rahmenfarbe'] ) ? $args['rahmenfarbe'] : '', '#303030' );
 
 	// Block-Ausrichtung (Gutenberg-align). Nur erlaubte Werte; alles andere = keine
 	// Ausrichtung. Die align-Klasse muss bei render_callback-Blöcken aktiv auf den
@@ -460,10 +445,13 @@ function split_flap_sanitize_board_args( $args ) {
 		'stellen'      => $stellen,
 		'intervall'    => $intervall,
 		'tempo'        => $tempo,
+		'zeichen'      => $zeichen,
+		'start'        => $start,
 		'farben'       => $farben,
 		'grossschrift' => $gross,
 		'textfarbe'    => $textfarbe,
 		'klappenfarbe' => $klappenfarbe,
+		'rahmenfarbe'  => $rahmenfarbe,
 		'schrift'      => $schrift,
 		'stil'         => $stil,
 		'align'        => $align,
@@ -506,9 +494,10 @@ function split_flap_render_board( $args ) {
 	// Custom Properties für Farben und Tempo. Farbflaps liegen als --sf-color-N vor.
 	// --sf-stellen speist die Container-Query-Breite (Klappen passen in den Container).
 	$style = sprintf(
-		'--sf-text:%1$s;--sf-flap:%2$s;--sf-flip-ms:%3$dms;--sf-stellen:%4$d;',
+		'--sf-text:%1$s;--sf-flap:%2$s;--sf-frame:%3$s;--sf-flip-ms:%4$dms;--sf-stellen:%5$d;',
 		esc_attr( $o['textfarbe'] ),
 		esc_attr( $o['klappenfarbe'] ),
+		esc_attr( $o['rahmenfarbe'] ),
 		(int) $flip_ms,
 		(int) $o['stellen']
 	);
@@ -516,8 +505,9 @@ function split_flap_render_board( $args ) {
 		$style .= sprintf( '--sf-color-%1$d:%2$s;', $i + 1, esc_attr( $o['farben'][ $i ] ) );
 	}
 
-	// Vollständiger Zeichen-Teil des Rings (48 Positionen inkl. Sonderzeichen).
-	$charset = split_flap_alpha_sequence();
+	// Zufallspool des Flickers: der gewählte Zeichensatz (Option «zeichen»). Der
+	// synchron-farbige Ring bleibt davon unberührt (fester SYNC_RING im JS).
+	$charset = split_flap_charset( $o['zeichen'] );
 
 	// Erste Szene ist der initial sichtbare Zustand (Aufbau-Animation startet hier).
 	$erste = $szenen_raster[0];
@@ -527,6 +517,7 @@ function split_flap_render_board( $args ) {
 	$out  = '<div class="split-flap split-flap--board ' . esc_attr( $schrift_class ) . esc_attr( $align_class ) . '"';
 	$out .= ' style="' . esc_attr( $style ) . '"';
 	$out .= ' data-sf-charset="' . esc_attr( $charset ) . '"';
+	$out .= ' data-sf-start="' . esc_attr( $o['start'] ) . '"';
 	$out .= ' data-sf-intervall="' . esc_attr( (int) $o['intervall'] ) . '"';
 	$out .= ' data-sf-stil="' . esc_attr( $o['stil'] ) . '"';
 	$out .= ' data-sf-szenen="' . esc_attr( (int) count( $szenen_raster ) ) . '"';
@@ -618,55 +609,4 @@ function split_flap_render_cell( $stelle ) {
 	$out .= '</span>';
 
 	return $out;
-}
-
-/**
- * v1-Render: einzeilige Anzeige als Sonderfall des Boards (eine Zeile, eine Szene).
- *
- * Hält die Rückwärtskompatibilität: derselbe Aufruf wie in v1, intern auf das
- * Board-Modell abgebildet. Felder/Zeichenzahl steuert die Stellen pro Zeile.
- *
- * @param array<string, mixed> $args Roh-Eingaben (v1-Schema).
- * @return string HTML-Markup.
- */
-function split_flap_render( $args ) {
-	$defaults = split_flap_defaults();
-
-	$text = isset( $args['text'] ) ? (string) $args['text'] : $defaults['text'];
-	$text = sanitize_text_field( wp_strip_all_tags( $text ) );
-
-	$gross = isset( $args['grossschrift'] )
-		? filter_var( $args['grossschrift'], FILTER_VALIDATE_BOOLEAN )
-		: $defaults['grossschrift'];
-
-	$felder = isset( $args['felder'] ) ? (int) $args['felder'] : $defaults['felder'];
-	if ( $felder < 0 ) {
-		$felder = 0;
-	}
-	if ( $felder > 60 ) {
-		$felder = 60;
-	}
-	if ( 0 === $felder ) {
-		$laenge = count( split_flap_chars( $text ) );
-		$felder = max( 1, $laenge );
-	}
-
-	// v1 kannte keine Farbflaps; geschweifte Klammern sollen hier neutral wirken.
-	// Da split_flap_parse_line {n} nur für 1–15 als Farbe deutet und sonst zu
-	// Leer-Klappen, bleibt reiner Text unverändert.
-	$board_args = array(
-		'szenen'       => array( $text ),
-		'zeilen'       => 1,
-		'stellen'      => $felder,
-		'intervall'    => 6,
-		'tempo'        => isset( $args['tempo'] ) ? $args['tempo'] : $defaults['tempo'],
-		'farben'       => null,
-		'grossschrift' => $gross,
-		'textfarbe'    => isset( $args['textfarbe'] ) ? $args['textfarbe'] : $defaults['textfarbe'],
-		'klappenfarbe' => isset( $args['klappenfarbe'] ) ? $args['klappenfarbe'] : $defaults['klappenfarbe'],
-		'schrift'      => isset( $args['schrift'] ) ? $args['schrift'] : $defaults['schrift'],
-		'align'        => isset( $args['align'] ) ? $args['align'] : '',
-	);
-
-	return split_flap_render_board( $board_args );
 }

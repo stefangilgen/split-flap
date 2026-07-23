@@ -8,11 +8,11 @@ Internes Experiment von Blitz & Donner. Kein Kundenprojekt.
 
 Eine Redaktorin setzt einen kurzen Text. Das Plugin rendert ihn als Reihe mechanischer Klappen, die beim Erscheinen im Viewport vom Startzustand zum Zieltext durchrattern und versetzt von links nach rechts stoppen.
 
-Ab Version 0.2.0 gibt es zwei Anzeigen: die einzeilige Tafel aus v1 und ein mehrzeiliges **Board** (Departure-Board) mit automatischem Szenen-Wechsel und Farbflaps.
+Seit Version 0.5.0 gibt es genau eine Anzeige: das mehrzeilige **Board** (Departure-Board) mit automatischem Szenen-Wechsel und Farbflaps. Die frühere einzeilige Tafel ist der Sonderfall «Board mit einer Zeile» – zugleich der Default.
 
-## Das Board (v2)
+## Das Board
 
-Das Board ist eine Abfahrtstafel mit fester Zeilen- und Stellenzahl, Default **6 Zeilen × 25 Stellen** (150 Klappen). Es hält eine oder mehrere **Szenen**; bei mehr als einer Szene wechselt es automatisch in einem Intervall durch. Im Standard-Stil «sequenziell» rattern nur die geänderten Stellen versetzt von links nach rechts.
+Das Board ist eine Abfahrtstafel mit fester Zeilen- und Stellenzahl, Default **1 Zeile × 25 Stellen**. Es hält eine oder mehrere **Szenen**; bei mehr als einer Szene wechselt es automatisch in einem Intervall durch. Im Standard-Stil «sequenziell» rattern nur die geänderten Stellen versetzt von links nach rechts.
 
 Das eingestellte Intervall ist eine Untergrenze, kein starrer Takt. Die Engine startet den nächsten Wechsel erst, wenn der vorige vollständig abgeschlossen ist und das Board kurz geruht hat. Das **effektive Intervall** ist deshalb `max(eingestelltes Intervall, längste Animationsdauer + Ruhepuffer)`. So kollidiert ein Wechsel nie mit einer noch laufenden Animation – auch bei Intervall 2 s und 150 geänderten Stellen zeigt das Board zwischen den Wechseln immer ein klares, scharfes Bild.
 
@@ -26,14 +26,18 @@ Die Optik orientiert sich am Projekt **roosterfish/fallblatt** – übernommen w
 
 ### Zeichensatz
 
-Jede Klappe stellt A–Z, 0–9, das Leerzeichen und elf Sonderzeichen dar: `+ - . , – % & * ? ! /`. Bindestrich/Minus «-» (U+002D) und Halbgeviertstrich «–» (U+2013) sind zwei verschiedene, jeweils erlaubte Zeichen. Zeichen ausserhalb dieser Liste werden zur Leer-Klappe – kein Fehler. Beim animierten Wechsel laufen die Sonderzeichen als Teil des Rings mit durch.
+Jede Klappe stellt A–Z, 0–9, das Leerzeichen und elf Sonderzeichen dar: `+ - . , – % & * ? ! /`. Bindestrich/Minus «-» (U+002D) und Halbgeviertstrich «–» (U+2013) sind zwei verschiedene, jeweils erlaubte Zeichen. Zeichen ausserhalb dieser Liste werden zur Leer-Klappe – kein Fehler.
+
+Die Option **Zeichensatz** (`zeichen`) formt den Zufalls-Flicker beim Aufbau und bei sequenziellen Wechseln: «A–Z 0–9» (`alnum`, Default), «nur Zahlen» (`zahlen`) oder «erweitert» (`erweitert`, inkl. Sonderzeichen). Der synchron-farbige Wechsel läuft unabhängig davon durch den festen Farbring.
+
+Die Option **Startverhalten** (`start`) bestimmt das Startglyph der Klappen beim sequenziellen Erstaufbau: «Zufallszeichen» (`zufall`, Default) würfelt je Klappe ein Zeichen aus dem Zeichensatz, «alphabetisch» (`alpha`) startet alle Klappen auf dem ersten Zeichen des Zeichensatzes (A beziehungsweise 0). Auf Folgewechsel wirkt `start` nicht; im synchron-farbigen Erstaufbau ist es wirkungslos (die Welle startet definitionsgemäss auf Farbe 1), bei *Bewegung reduzieren* wird es ignoriert.
 
 ### Animationsstil
 
 Der Block- und Shortcode-Parameter `stil` steuert den Szenenwechsel:
 
 - **Sequenziell (versetzt)** – Default, Wert `sequenziell`. Nur geänderte Stellen klappen, versetzt von links nach rechts, mit gewürfelten Zwischenschritten. Verhalten unverändert gegenüber früheren Versionen.
-- **Synchron farbig** – Wert `synchron`. Beim Wechsel klappen **alle** Stellen gleichzeitig. Sie starten im selben Moment bei Farbflap 1 und durchlaufen denselben vollständigen Ring (15 Farben c1…c15, dann die 48 Zeichen-Positionen) im selben Takt; jede Klappe stoppt bei ihrem Zielzeichen. So entsteht eine farbige Welle mit gestaffeltem Ende. Der Takt ist gedeckelt, sodass der längste Durchlauf bei Tempo «normal» rund 2.5 s nicht überschreitet. Der Erstaufbau bleibt in beiden Stilen sequenziell; der synchrone Vollring greift erst ab dem ersten Szenenwechsel.
+- **Synchron farbig** – Wert `synchron`. **Alle** Stellen klappen gleichzeitig – beim Erstaufbau wie bei jedem Szenenwechsel. Sie starten im selben Moment bei Farbflap 1 und durchlaufen denselben vollständigen Ring (15 Farben c1…c15, dann die 48 Zeichen-Positionen) im selben Takt; jede Klappe stoppt bei ihrem Zielzeichen. So entsteht eine farbige Welle mit gestaffeltem Ende – auch bei einem Board mit nur einer Szene, sobald es in den Viewport kommt. Der Takt ist gedeckelt, sodass der längste Durchlauf bei Tempo «normal» rund 2.5 s nicht überschreitet.
 
 Bei *Bewegung reduzieren* (`prefers-reduced-motion: reduce`) zeigt das Board in beiden Stilen nur die erste Szene statisch – kein Loop, kein Durchlauf.
 
@@ -46,36 +50,17 @@ Es gibt keinen Build-Schritt. Der Block läuft build-frei über `wp.element` –
 
 ## Nutzung als Block
 
-Es gibt zwei Blöcke (Kategorie *Medien*):
+Es gibt einen Block: **Split-Flap-Board** (Kategorie *Medien*).
 
-- **Split-Flap** – die einzeilige Tafel aus v1.
-- **Split-Flap-Board** – das mehrzeilige Board mit Szenen und Farbflaps.
-
-Beim Board legt die Redaktorin im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation* das Loop-Intervall, Tempo, der Animationsstil und die Schrift, im Panel *Farbflaps* die 15 Farben. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation und Loop laufen erst im Frontend.
+Die Redaktorin legt im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation* das Loop-Intervall, Tempo, der Animationsstil, Zeichensatz, Startverhalten und die Schrift, im Panel *Farbflaps* die 15 Farben der `{n}`-Syntax. Die drei **Grundfarben** der Anzeige – Textfarbe, Klappenfarbe und Rahmenfarbe – stehen im **Stile-Tab** der Seitenleiste, jeweils mit der Farbpalette des aktiven Themes. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation und Loop laufen erst im Frontend.
 
 Ist eine Zeile länger als die Stellenzahl oder hat eine Szene mehr Zeilen als das Board, kürzt der Block und blendet im Editor einen Hinweis ein.
 
 ### Ausrichtung «breit» und «voll»
 
-Beide Blöcke kennen die Gutenberg-Ausrichtungen «breit» und «volle Breite» (Buttons in der Block-Toolbar). Sie heben die Obergrenze der Klappengrösse an, sodass die Tafel den verfügbaren Raum nutzt:
-
-| Ausrichtung | Obergrenze pro Klappe |
-|---|---|
-| Standard (keine, links, zentriert, rechts) | 2.1rem |
-| Breit (`alignwide`) | 3.2rem |
-| Voll (`alignfull`) | 4.6rem |
-
-Die Höhe folgt automatisch proportional aus der Breite (Höhe = Breite × 1.5), die Schrift bleibt an die Höhe gekoppelt. Klappen, Höhe und Schrift wachsen also im selben Verhältnis – das Seitenverhältnis bleibt unverändert, nichts wird gestaucht oder abgeschnitten. Wachsen die Klappen über den Containerraum hinaus, greift die Obergrenze: Die Tafel zentriert sich dann mit Rand, statt sich über die ganze Breite zu dehnen. Wenige Stellen auf voller Breite ergeben so keine riesigen, gedehnten Klappen, sondern eine zentrierte Tafel. Auf schmalen Viewports bleiben die Klappen unter der Obergrenze – die Container Query hält sie ohne horizontalen Überlauf im Container.
+Der Block kennt die Gutenberg-Ausrichtungen «breit» und «volle Breite» (Buttons in der Block-Toolbar). Die Klappen füllen immer die volle verfügbare Containerbreite: Die Klappenbreite ergibt sich aus Containerbreite geteilt durch Stellenzahl, Höhe und Schrift skalieren proportional mit (Seitenverhältnis 1.34). «Breit» und «voll» geben dem Board den breiteren beziehungsweise viewportbreiten Container als Rechenbasis; «voll» bricht über die scrollbar-sichere `--sf-vw`-Messung aus. Auf schmalen Viewports hält die Container Query die Klappen ohne horizontalen Überlauf im Container.
 
 ## Nutzung als Shortcode
-
-Einzeilig (v1):
-
-```text
-[split_flap text="ABFAHRT" felder="7" tempo="normal"]
-```
-
-Board (v2):
 
 ```text
 [split_flap_board
@@ -84,35 +69,26 @@ Board (v2):
   zeilen="6" stellen="25" intervall="6" tempo="normal" stil="synchron"]
 ```
 
-Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeilen. Eine einzige Szene ergibt ein statisches Board ohne Wechsel. Block und Shortcode teilen sich dieselbe Render-Funktion – das Frontend-Ergebnis ist identisch.
+Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeilen. Eine einzige Szene ergibt ein statisches Board ohne Wechsel (im Stil «synchron» mit farbiger Welle beim Erstaufbau). Block und Shortcode teilen sich dieselbe Render-Funktion – das Frontend-Ergebnis ist identisch.
 
-### Board-Shortcode-Parameter
+### Shortcode-Parameter
 
 | Parameter | Werte | Default | Wirkung |
 |---|---|---|---|
 | `scene1`, `scene2`, … | Text, Zeilen mit `\|` getrennt | – | Je ein Board-Zustand. Mehrere ergeben den Wechsel |
-| `zeilen` | Zahl `1`–`30` | `6` | Anzahl Board-Zeilen |
+| `zeilen` | Zahl `1`–`30` | `1` | Anzahl Board-Zeilen |
 | `stellen` | Zahl `1`–`60` | `25` | Stellen pro Zeile |
 | `intervall` | Zahl `2`–`30` | `6` | Loop-Intervall in Sekunden (nur bei mehreren Szenen) |
 | `tempo` | `langsam` / `normal` / `schnell` | `normal` | Tempo des Durchratterns pro Klappe |
-| `stil` | `sequenziell` / `synchron` | `sequenziell` | Animationsstil des Szenenwechsels (siehe Abschnitt Animationsstil) |
+| `stil` | `sequenziell` / `synchron` | `sequenziell` | Animationsstil (siehe Abschnitt Animationsstil) |
+| `zeichen` | `alnum` / `zahlen` / `erweitert` | `alnum` | Zeichensatz des Zufalls-Flickers |
+| `start` | `zufall` / `alpha` | `zufall` | Startglyph beim sequenziellen Erstaufbau |
 | `farben` | 15 Hex-Werte, kommagetrennt | Default-Palette | Farben der `{1}`–`{15}`-Syntax |
 | `schrift` | `mono` / `theme` | `mono` | Schriftbild der Klappe |
 | `grossschrift` | `true` / `false` | `true` | Wandelt die Eingabe in Grossbuchstaben |
 | `textfarbe` | Hex-Farbe | `#C8C8C8` | Farbe der Ziffern und Buchstaben |
-| `klappenfarbe` | Hex-Farbe | `#1A1A1A` | Hintergrund der Klappe |
-
-### Einzeilige Shortcode-Parameter
-
-| Parameter | Werte | Default | Wirkung |
-|---|---|---|---|
-| `text` | beliebiger kurzer Text | leer | Der anzuzeigende Zieltext |
-| `felder` | Zahl `0`–`60` | `0` | Feste Klappenzahl; `0` = automatisch (Länge des Textes). Kürzt oder füllt mit Leerklappen |
-| `tempo` | `langsam` / `normal` / `schnell` | `normal` | Tempo des Durchratterns pro Klappe |
-| `textfarbe` | Hex-Farbe | `#C8C8C8` | Farbe der Ziffern und Buchstaben |
-| `klappenfarbe` | Hex-Farbe | `#1A1A1A` | Hintergrund der Klappe |
-| `schrift` | `mono` / `theme` | `mono` | Schriftbild der Klappe |
-| `grossschrift` | `true` / `false` | `true` | Wandelt die Eingabe in Grossbuchstaben |
+| `klappenfarbe` | Hex-Farbe | `#1A1A1A` | Hintergrund der einzelnen Klappe |
+| `rahmenfarbe` | Hex-Farbe | `#303030` | Farbe des Kastens um die Klappen |
 
 ## Die 15 Default-Farben
 
@@ -146,10 +122,9 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 | `split-flap.php` | Plugin-Header, Konstanten, Laden der Module, Text-Domain |
 | `includes/render.php` | Gemeinsame Render-Funktion: Validierung, Escaping, HTML-Aufbau |
 | `includes/assets.php` | Registrierung und bedingtes Enqueue von CSS/JS |
-| `includes/block.php` | Registrierung beider Blöcke über `block.json`, Render-Callbacks |
-| `includes/shortcode.php` | Shortcodes `[split_flap]` und `[split_flap_board]`, Mapping auf die Render-Funktionen |
-| `blocks/split-flap/` | Einzeiliger v1-Block (Metadaten, Editor) |
-| `blocks/split-flap-board/` | Board-Block v2 (Metadaten, Editor) |
+| `includes/block.php` | Registrierung des Board-Blocks über `block.json`, Render-Callback |
+| `includes/shortcode.php` | Shortcode `[split_flap_board]`, Mapping auf die Render-Funktion |
+| `blocks/split-flap-board/` | Board-Block (Metadaten, Editor) |
 | `assets/css/split-flap.css` | Klappen-Stile, fallblatt-Look, Flip-Keyframes, Reduced-Motion |
 | `assets/js/split-flap.js` | Board-Engine: IntersectionObserver, Szenen-Loop, Flip-Mechanik (sequenziell und synchron) |
 
@@ -158,6 +133,15 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion, globale Settings-Seite, theme-übergreifendes Skin-System. Alle Optionen leben am Block beziehungsweise im Shortcode.
 
 ## Changelog
+
+### 0.5.0
+
+V2-Konsolidierung: ein Block, drei Stilfarben, Zeichensatz und Startverhalten im Board, synchron-Welle schon beim Erstaufbau.
+
+- **Einzeiliger Block und Shortcode entfernt (Breaking Change).** Der Block «Split-Flap» (`blitzdonner/split-flap`) und der Shortcode `[split_flap]` fallen weg – das Board ist die einzige Anzeige. Die einzeilige Tafel ist der Sonderfall «Board mit einer Zeile» und zugleich der neue Default: das Board startet mit 1 Zeile statt 6 (Stellen bleiben 25). Bestehende Inhalte mit dem alten Block oder Shortcode rendern nicht mehr (Alpha-Phase, Migration bewusst nicht vorgesehen). Aus der Whitelist des Startverhaltens fällt der nie im Board angebotene Wert `leer` weg.
+- **Farben im Stile-Tab, neu mit Rahmenfarbe.** Die Grundfarben der Anzeige sitzen jetzt im Stile-Tab der Seitenleiste, alle mit der Farbpalette des aktiven Themes: Textfarbe (`--sf-text`), Klappenfarbe (`--sf-flap`) und neu die Rahmenfarbe (`--sf-frame`, Default #303030) für den Kasten um die Klappen. Der Rahmen war bisher hart auf Anthrazit gesetzt. Gespeichert wird weiterhin Hex direkt in den Attributen; native `supports.color` werden bewusst nicht genutzt (sie färbten den falschen Kasten und speicherten Palette-Slugs statt Hex). Die 15 Farbflaps der `{n}`-Syntax bleiben als Inhalt im Einstellungen-Tab.
+- **Zeichensatz und Startverhalten im Board.** Zwei neue Regler im Panel «Animation»: Der Zeichensatz (`zeichen`: A–Z 0–9, nur Zahlen, erweitert) formt den Zufalls-Flicker beim Aufbau und bei sequenziellen Wechseln; das Startverhalten (`start`: Zufallszeichen, alphabetisch) bestimmt das Startglyph der Klappen beim sequenziellen Erstaufbau. Damit ist auch die Verdrahtungslücke geschlossen: `data-sf-start` wird jetzt ausgegeben **und** von der Frontend-Engine gelesen – vorher lief der Erstaufbau immer vom serverseitig gerenderten Zieltext los.
+- **Synchron-Welle schon beim Erstaufbau.** Bei `stil=synchron` läuft bereits der Erstaufbau als farbige Welle durch den festen Ring (alle Klappen starten gleichzeitig auf Farbe 1, stoppen gestaffelt auf dem Zieltext) – nicht mehr sequenziell. Damit zeigt jedes synchron-Board den Effekt sofort beim Erscheinen im Viewport, auch mit nur einer Szene; bisher griff die Welle erst ab dem zweiten Szenenwechsel. Bei `stil=sequenziell` bleibt der Erstaufbau unverändert versetzt. Bei *Bewegung reduzieren* bleibt das Board in beiden Stilen statisch.
 
 ### 0.4.3
 

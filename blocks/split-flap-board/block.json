@@ -23,7 +23,7 @@
 		},
 		"zeilen": {
 			"type": "number",
-			"default": 6
+			"default": 1
 		},
 		"stellen": {
 			"type": "number",
@@ -40,6 +40,14 @@
 		"stil": {
 			"type": "string",
 			"default": "sequenziell"
+		},
+		"zeichen": {
+			"type": "string",
+			"default": "alnum"
+		},
+		"start": {
+			"type": "string",
+			"default": "zufall"
 		},
 		"schrift": {
 			"type": "string",
@@ -60,6 +68,10 @@
 		"klappenfarbe": {
 			"type": "string",
 			"default": "#1A1A1A"
+		},
+		"rahmenfarbe": {
+			"type": "string",
+			"default": "#303030"
 		}
 	},
 	"editorScript": "file:./editor.js",
