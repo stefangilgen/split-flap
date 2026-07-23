@@ -52,7 +52,7 @@ Es gibt keinen Build-Schritt. Der Block läuft build-frei über `wp.element` –
 
 Es gibt einen Block: **Split-Flap-Board** (Kategorie *Medien*).
 
-Die Redaktorin legt im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation* das Loop-Intervall, Tempo, der Animationsstil, Zeichensatz, Startverhalten und die Schrift, im Panel *Farbflaps* die 15 Farben der `{n}`-Syntax. Die drei **Grundfarben** der Anzeige – Textfarbe, Klappenfarbe und Rahmenfarbe – stehen im **Stile-Tab** der Seitenleiste, jeweils mit der Farbpalette des aktiven Themes. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation und Loop laufen erst im Frontend.
+Die Redaktorin legt im Panel *Szenen* einen oder mehrere Szenen-Texte an (eine Eingabezeile = eine Board-Zeile, Farbflap mit `{1}`–`{15}`). Hat das Board mehrere Szenen, blendet das Panel eine Knopfreihe *Szene 1*, *Szene 2* … ein: Der gewählte Knopf schaltet sowohl die Vorschau als auch das Textfeld auf diese Szene um, sodass die Redaktorin jede Szene einzeln sieht und bearbeitet. Im Panel *Board* stehen Zeilen, Stellen und Grossschreibung, im Panel *Animation* das Loop-Intervall, Tempo, der Animationsstil, Zeichensatz, Startverhalten und die Schrift. Alle Farben sitzen im **Stile-Tab** der Seitenleiste, jeweils mit der Farbpalette des aktiven Themes: das Panel *Grundfarben* mit Textfarbe, Klappenfarbe und Rahmenfarbe, darunter das Panel *Farbflaps* mit den 15 Farben der `{n}`-Syntax. Die Vorschau aktualisiert sich beim Tippen live und zeigt die jeweils gewählte Szene statisch. Flip-Animation und Loop laufen erst im Frontend.
 
 Ist eine Zeile länger als die Stellenzahl oder hat eine Szene mehr Zeilen als das Board, kürzt der Block und blendet im Editor einen Hinweis ein.
 
@@ -133,6 +133,10 @@ Pro Szene ein Attribut `sceneN`; innerhalb einer Szene trennt `|` die Board-Zeil
 Bewusst weiterhin nicht enthalten: Live-Datenfeed (Fahrpläne, Uhrzeit, RSS, APIs), Klick- oder Hover-Interaktion, globale Settings-Seite, theme-übergreifendes Skin-System. Alle Optionen leben am Block beziehungsweise im Shortcode.
 
 ## Changelog
+
+### 0.5.1
+
+- **Farbflaps im Stile-Tab.** Die 15 Farbflaps der `{1}`–`{15}`-Syntax sitzen jetzt wie die Grundfarben im Stile-Tab der Seitenleiste – als eigenes Panel «Farbflaps» (standardmässig zugeklappt) mit dem offiziellen WP-Farb-Picker inklusive der Farbpalette des aktiven Themes. Die bisherigen 15 einzelnen Roh-Picker im Einstellungen-Tab entfallen; der Einstellungen-Tab enthält damit keine Farben mehr, nur noch Szenen, Board und Animation. Am Datenmodell ändert sich nichts: Das Attribut `farben` speichert weiterhin Hex-Werte, leere Einträge fallen auf die Default-Palette zurück – bestehende Boards rendern unverändert.
 
 ### 0.5.0
 

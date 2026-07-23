@@ -24,7 +24,6 @@
 	var ToggleControl = wp.components.ToggleControl;
 	var Button = wp.components.Button;
 	var Notice = wp.components.Notice;
-	var ColorPicker = wp.components.ColorPicker;
 
 	var MAX_ZEILEN = 30;
 	var MAX_STELLEN = 60;
@@ -424,43 +423,12 @@
 							setAttributes( { schrift: value } );
 						}
 					} )
-				),
-				el(
-					PanelBody,
-					{ title: __( 'Farbflaps', 'split-flap' ), initialOpen: false },
-					el(
-						'p',
-						{ style: { fontSize: '12px', opacity: 0.8 } },
-						__( 'Die 15 Farben der {1}- bis {15}-Syntax.', 'split-flap' )
-					),
-					DEFAULT_PALETTE.map( function ( def, idx ) {
-						return el(
-							PanelBody,
-							{
-								key: idx,
-								title: __( 'Farbflap', 'split-flap' ) + ' ' + ( idx + 1 ),
-								initialOpen: false
-							},
-							el( ColorPicker, {
-								color: colorAt( idx ),
-								enableAlpha: false,
-								onChangeComplete: function ( value ) {
-									var next = farben.slice();
-									while ( next.length < 15 ) {
-										next.push( '' );
-									}
-									next[ idx ] = value && value.hex ? value.hex : DEFAULT_PALETTE[ idx ];
-									setAttributes( { farben: next } );
-								}
-							} )
-						);
-					} )
 				)
 			);
 
-			// Stile-Tab: die drei Grundfarben der Anzeige (Text, Klappen, Rahmen) –
-			// bewusst «Grundfarben» statt «Farben», damit das Panel nicht mit
-			// «Farbflaps» (den 15 Blockfarben der {n}-Syntax) verwechselt wird.
+			// Stile-Tab: zwei Panels. «Grundfarben» = die drei Anzeigefarben
+			// (Text, Klappen, Rahmen), «Farbflaps» = die 15 Blockfarben der
+			// {1}–{15}-Syntax (Attribut farben, Fallback DEFAULT_PALETTE).
 			// PanelColorSettings bindet die Theme-Palette automatisch ein und
 			// speichert Hex direkt in den Attributen (kein Slug-Auflösen im Render).
 			// Fallbacks = die Board-Defaults aus block.json.
@@ -493,6 +461,24 @@
 							label: __( 'Rahmenfarbe', 'split-flap' )
 						}
 					]
+				} ),
+				el( PanelColorSettings, {
+					title: __( 'Farbflaps', 'split-flap' ),
+					initialOpen: false,
+					colorSettings: DEFAULT_PALETTE.map( function ( ignored, idx ) {
+						return {
+							value: colorAt( idx ),
+							onChange: function ( value ) {
+								var next = farben.slice();
+								while ( next.length < 15 ) {
+									next.push( '' );
+								}
+								next[ idx ] = value || DEFAULT_PALETTE[ idx ];
+								setAttributes( { farben: next } );
+							},
+							label: __( 'Farbflap', 'split-flap' ) + ' ' + ( idx + 1 )
+						};
+					} )
 				} )
 			);
 
