@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Split-Flap
  * Description: Animierte Fallblattanzeige (Split-Flap-Display) für WordPress – mehrzeiliges Board mit Szenen-Wechsel und Farbflaps. Als Gutenberg-Block und als Shortcode. Reines PHP, Vanilla JS und CSS, ohne Drittanbieter-Bibliothek.
- * Version: 0.5.1
+ * Version: 0.6.0
  * Author: Blitz & Donner
  * Requires at least: 6.6
  * Requires PHP: 7.4
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 define( 'SPLIT_FLAP_FILE', __FILE__ );
 define( 'SPLIT_FLAP_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SPLIT_FLAP_URL', plugin_dir_url( __FILE__ ) );
-define( 'SPLIT_FLAP_VERSION', '0.5.1' );
+define( 'SPLIT_FLAP_VERSION', '0.6.0' );
 
 require_once SPLIT_FLAP_DIR . 'includes/render.php';
 require_once SPLIT_FLAP_DIR . 'includes/assets.php';
@@ -39,6 +39,18 @@ require_once SPLIT_FLAP_DIR . 'includes/shortcode.php';
  * registriert sein, BEVOR WordPress den update_plugins-Transient befüllt (auch im
  * Cron-Loopback) – sonst blendet WP die Auto-Update-Schaltung aus.
  */
+// Zentrale Lizenzverwaltung (bdliz): mitgelieferte Kopie, Registrierung auf
+// Dateiebene, damit sie vor plugins_loaded steht. Newest wins ueber alle
+// installierten B&D-Plugins.
+require_once SPLIT_FLAP_DIR . 'includes/bdliz/bdliz-loader.php';
+bdliz_register(
+	'1.0.0',
+	SPLIT_FLAP_DIR . 'includes/bdliz/class-bdliz-module.php',
+	'split-flap',
+	'Split-Flap Plugin',
+	'split_flap_license_token'
+);
+
 add_action(
 	'plugins_loaded',
 	function () {

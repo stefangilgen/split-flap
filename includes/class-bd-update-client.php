@@ -55,6 +55,8 @@ class BD_Update_Client {
 	const ACCEPTED_KEYS = array(
 		// Inhaber: Blitz & Donner / Stefan (Produktiv) – erzeugt 2026-06-21.
 		'8337dfb76e01b82d' => '8337dfb76e01b82da07e39df711d72f758f33a372932db268bb505b0bdea4860',
+		// Inhaber: Blitz & Donner / David – erzeugt 2026-06-26.
+		'85044a46882e9338' => '85044a46882e93386304cb8329b2407ba7d7f970f727d99d4b546fc79391e2bd',
 	);
 
 	/**
@@ -149,12 +151,20 @@ class BD_Update_Client {
 	/* --------------------------------------------------------------------- */
 
 	/**
-	 * Token aus wp-config-Konstante ODER Einstellungs-Option lesen.
-	 * Die Konstante hat Vorrang.
+	 * Token dreistufig lesen:
+	 * 1. wp-config-Konstante (Vorrang, technische Setups),
+	 * 2. zentrale Lizenzverwaltung (bdliz-Modul, ein Feld fuer alle Plugins),
+	 * 3. plugin-eigene Einstellungs-Option (Rueckfallebene, Bestand).
 	 */
 	private function get_token() {
 		if ( $this->const_key && defined( $this->const_key ) ) {
 			return (string) constant( $this->const_key );
+		}
+		if ( function_exists( 'bdliz_get_token' ) ) {
+			$token = (string) bdliz_get_token( $this->slug );
+			if ( '' !== $token ) {
+				return $token;
+			}
 		}
 		if ( $this->option_key ) {
 			return (string) get_option( $this->option_key, '' );
@@ -165,6 +175,73 @@ class BD_Update_Client {
 	private function current_host() {
 		$parts = wp_parse_url( home_url() );
 		return isset( $parts['host'] ) ? strtolower( $parts['host'] ) : '';
+	}
+
+	/* --------------------------------------------------------------------- */
+	/* Oeffentlicher Status fuer die Backend-Anzeige                         */
+	/* --------------------------------------------------------------------- */
+
+	/**
+	 * Liefert den aktuellen Update-/Lizenz-Status fuer eine Backend-Status-Box.
+	 *
+	 * Gibt KEIN Token zurueck – nur abgeleitete, anzeigbare Statusinformationen.
+	 *
+	 * @param bool $force_remote True erzwingt einen frischen Server-Check am
+	 *                           Request-Cache vorbei (fuer «Token testen»).
+	 *
+	 * @return array {
+	 *     @type string $code     Einer von: const_set | no_token | valid |
+	 *                            forbidden | unreachable | no_update.
+	 *     @type string $version  Installierte Version.
+	 *     @type string $remote_version  Server-Version bei gueltigem Token, sonst ''.
+	 *     @type bool   $by_const Token kommt aus der wp-config-Konstante.
+	 * }
+	 */
+	public function status( $force_remote = false ) {
+		$by_const = ( $this->const_key && defined( $this->const_key ) );
+
+		$result = array(
+			'code'           => 'no_token',
+			'version'        => $this->version,
+			'remote_version' => '',
+			'by_const'       => $by_const,
+		);
+
+		$token = $this->get_token();
+		if ( '' === $token ) {
+			$result['code'] = $by_const ? 'const_set' : 'no_token';
+			return $result;
+		}
+
+		if ( $force_remote ) {
+			// Request-Cache verwerfen, damit ein echter Live-Check stattfindet.
+			$this->remote = null;
+		}
+
+		$remote = $this->fetch_remote();
+
+		if ( is_wp_error( $remote ) ) {
+			switch ( $remote->get_error_code() ) {
+				case 'forbidden':
+					$result['code'] = 'forbidden';
+					break;
+				case 'no_update':
+					// Token gueltig, aber keine neuere Version vorhanden.
+					$result['code'] = 'valid';
+					break;
+				case 'no_token':
+					$result['code'] = $by_const ? 'const_set' : 'no_token';
+					break;
+				default:
+					$result['code'] = 'unreachable';
+			}
+			return $result;
+		}
+
+		// Gueltige Server-Antwort mit Versionsdaten.
+		$result['code']           = 'valid';
+		$result['remote_version'] = isset( $remote['version'] ) ? (string) $remote['version'] : '';
+		return $result;
 	}
 
 	/* --------------------------------------------------------------------- */
@@ -251,6 +328,10 @@ class BD_Update_Client {
 		// Nur anbieten, wenn die Server-Version neuer ist.
 		if ( version_compare( $remote['version'], $this->version, '>' ) ) {
 			$item = array(
+				// 'id' wird von der WP-Plugin-Liste fuer eigene Update-Provider
+				// erwartet (column_auto_updates / filter_payload). Ohne id kann WP
+				// das Item als nicht update-faehig behandeln.
+				'id'           => $this->basename,
 				'slug'         => $this->slug,
 				'plugin'       => $this->basename,
 				'new_version'  => $remote['version'],
@@ -271,6 +352,7 @@ class BD_Update_Client {
 			// Kein Update: aus der Liste entfernen, falls vorhanden.
 			unset( $transient->response[ $this->basename ] );
 			$transient->no_update[ $this->basename ] = (object) array(
+				'id'          => $this->basename,
 				'slug'        => $this->slug,
 				'plugin'      => $this->basename,
 				'new_version' => $this->version,
@@ -305,8 +387,33 @@ class BD_Update_Client {
 			'requires'      => isset( $remote['requires'] ) ? $remote['requires'] : '',
 			'requires_php'  => isset( $remote['requires_php'] ) ? $remote['requires_php'] : '',
 			'download_link' => $this->server_url . '/bd-updater/download/' . rawurlencode( $this->slug ),
-			'sections'      => isset( $remote['sections'] ) ? $remote['sections'] : array( 'changelog' => '' ),
+			'sections'      => $this->detail_sections( $remote ),
 		);
+	}
+
+	/**
+	 * Reiter im Plugin-Details-Fenster. Der Server liefert seit Version 1.8.0
+	 * die Changelog-Historie der letzten zehn Versionen und den Reiter
+	 * «Weitere Plugins». Antwortet ein aelterer Server, ergaenzt der Client den
+	 * Hinweis-Reiter selbst – so ist er auf jeder Installation da.
+	 *
+	 * @param array<string,mixed> $remote Serverantwort.
+	 * @return array<string,string>
+	 */
+	private function detail_sections( $remote ) {
+		$sections = isset( $remote['sections'] ) && is_array( $remote['sections'] )
+			? $remote['sections']
+			: array( 'changelog' => '' );
+
+		if ( empty( $sections['weitere_plugins'] ) ) {
+			$sections['weitere_plugins'] =
+				'<p><strong>Blitz &amp; Donner</strong> ist eine Schweizer Marken- und Kommunikationsagentur. '
+				. 'Die hier gepflegten WordPress-Plugins entstehen aus der taeglichen Arbeit an Kundenprojekten.</p>'
+				. '<p><a href="https://plugins.blitzdonner.ch" target="_blank" rel="noopener noreferrer">plugins.blitzdonner.ch</a> '
+				. '– Uebersicht, Anleitungen und Lizenzen.</p>';
+		}
+
+		return $sections;
 	}
 
 	/* --------------------------------------------------------------------- */
